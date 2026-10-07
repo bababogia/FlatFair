@@ -1,2 +1,376 @@
 # FlatFair
-A gamified roommate management app that uses credits, bidding, and fair allocation to manage household chores, expenses, and shared responsibilities.
+
+A mobile application designed to make shared household management more **fair, transparent, and engaging**.
+
+Instead of simply assigning chores, Choreconomy introduces an internal **credit-based economy** where roommates can express their preferences through bids. A game-theoretic allocation system then uses these preferences to distribute household responsibilities as fairly as possible.
+
+The app also combines chore management, shared expenses, announcements, and a social hub in one platform.
+
+---
+
+## Features
+
+### Chore Bidding
+
+Roommates can bid internal credits on household chores based on how much they want to avoid or take on a particular task.
+
+The system uses these preferences to calculate a fair allocation rather than relying on static assignments.
+
+**Example:**
+
+```text
+Clean Bathroom
+Your bid: 20 credits
+
+Take Out Trash
+Your bid: 5 credits
+
+Vacuum
+Your bid: 10 credits
+```
+
+The allocation algorithm considers the bids of all roommates and attempts to maximize overall household utility while maintaining fairness.
+
+---
+
+### Credit Economy
+
+Each household has its own internal credit system.
+
+Credits can be:
+
+* Earned
+* Spent
+* Allocated through chores
+* Used for bidding
+* Refunded
+* Adjusted through household rules
+
+All credit changes are recorded in a transaction history.
+
+> Credits are virtual points and are completely separate from real-world money.
+
+---
+
+### Shared Expenses
+
+Roommates can record shared expenses and automatically calculate how much each participant owes.
+
+Supported splitting methods include:
+
+* Equal splitting
+* Custom amounts
+* Percentage-based splitting
+
+Example:
+
+```text
+Groceries
+€60.00
+
+Alex     €20.00
+Maria    €20.00
+John     €20.00
+```
+
+The expense system remains separate from the internal credit economy.
+
+---
+
+### Social Hub
+
+A shared household space for communication.
+
+#### Anonymous Board
+
+Roommates can post anonymously about household issues, suggestions, or discussions.
+
+#### Announcements
+
+Important messages can be pinned by household administrators.
+
+Examples:
+
+* Cleaning schedules
+* Landlord visits
+* House meetings
+* Utility reminders
+
+---
+
+### Real-Time Synchronization
+
+Powered by Firebase, the application synchronizes important household information in real time.
+
+This includes:
+
+* Chores
+* Bids
+* Assignments
+* Credit balances
+* Credit transactions
+* Expenses
+* Announcements
+* Social posts
+
+---
+
+## Technology Stack
+
+### Android
+
+* **Kotlin**
+* **Jetpack Compose**
+* **Material 3**
+* **Kotlin Coroutines**
+* **StateFlow**
+* **ViewModel**
+* **Clean Architecture**
+
+### Backend
+
+* **Firebase Authentication**
+* **Cloud Firestore**
+* **Firebase Cloud Functions**
+* **Firebase Cloud Messaging**
+* **Firebase Storage**
+
+### Allocation Engine
+
+The chore allocation system is implemented as server-side logic using **Node.js/TypeScript Cloud Functions**.
+
+The system is designed around concepts from:
+
+* Utility maximization
+* Fair allocation
+* Resource allocation
+* Strategic bidding
+* Game theory
+
+---
+
+## Architecture
+
+The application follows a layered architecture:
+
+```text
+┌──────────────────────────┐
+│       Jetpack Compose    │
+│            UI            │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│        ViewModels        │
+│       State / Flow       │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│        Use Cases         │
+│      Domain Logic        │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│       Repositories       │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│      Firebase Layer      │
+│ Auth / Firestore / FCM   │
+└──────────────────────────┘
+```
+
+Critical operations such as credit modifications and chore allocation are validated on the server rather than being trusted to the Android client.
+
+---
+
+## Project Structure
+
+```text
+app/
+└── src/main/java/com/.../choreconomy/
+
+    ├── core/
+    │   ├── common/
+    │   ├── navigation/
+    │   └── ui/
+    │
+    ├── data/
+    │   ├── firebase/
+    │   ├── model/
+    │   └── repository/
+    │
+    ├── domain/
+    │   ├── model/
+    │   ├── repository/
+    │   └── usecase/
+    │
+    └── features/
+        ├── auth/
+        ├── household/
+        ├── dashboard/
+        ├── chores/
+        ├── bidding/
+        ├── expenses/
+        ├── social/
+        └── profile/
+```
+
+---
+
+## Development Roadmap
+
+### Phase 1 — Foundation
+
+* [x] Android project setup
+* [x] GitHub repository
+* [ ] Jetpack Compose architecture
+* [ ] Navigation
+* [ ] Design system
+
+### Phase 2 — Authentication & Households
+
+* [ ] Firebase Authentication
+* [ ] User profiles
+* [ ] Household creation
+* [ ] Household invitations
+* [ ] Household roles
+
+### Phase 3 — Chore Management
+
+* [ ] Create chores
+* [ ] Recurring chores
+* [ ] Chore details
+* [ ] Completion tracking
+* [ ] Deadlines
+* [ ] Chore history
+
+### Phase 4 — Credit Economy
+
+* [ ] Credit balances
+* [ ] Credit transactions
+* [ ] Weekly/monthly allowances
+* [ ] Credit wallet
+* [ ] Transaction history
+
+### Phase 5 — Bidding System
+
+* [ ] Bid submission
+* [ ] Bid validation
+* [ ] Allocation algorithm
+* [ ] Fairness constraints
+* [ ] Chore assignment
+* [ ] Allocation history
+
+### Phase 6 — Expenses
+
+* [ ] Create expenses
+* [ ] Split expenses
+* [ ] Balance calculation
+* [ ] Settlement tracking
+
+### Phase 7 — Social Hub
+
+* [ ] Anonymous posts
+* [ ] Announcements
+* [ ] Notifications
+* [ ] Household activity feed
+
+### Phase 8 — Polish
+
+* [ ] Animations
+* [ ] Loading states
+* [ ] Error handling
+* [ ] Offline support
+* [ ] Accessibility
+* [ ] Performance optimization
+
+---
+
+## Example Workflow
+
+A typical household cycle looks like:
+
+```text
+          ┌──────────────┐
+          │ Create Chore │
+          └──────┬───────┘
+                 ↓
+          ┌──────────────┐
+          │ Roommates Bid│
+          └──────┬───────┘
+                 ↓
+       ┌─────────────────────┐
+       │ Allocation Algorithm│
+       └──────────┬──────────┘
+                  ↓
+          ┌──────────────┐
+          │Chore Assigned│
+          └──────┬───────┘
+                 ↓
+          ┌──────────────┐
+          │Complete Chore│
+          └──────┬───────┘
+                 ↓
+          ┌──────────────┐
+          │ Credit Update│
+          └──────┬───────┘
+                 ↓
+          ┌──────────────┐
+          │ Next Round   │
+          └──────────────┘
+```
+
+The objective is not simply to make everyone do the same amount of work.
+
+The objective is to create a system where **different preferences can coexist while the overall household workload remains fair**.
+
+---
+
+## Security
+
+The application treats the Android client as untrusted.
+
+Server-side validation is required for critical operations including:
+
+* Credit balance changes
+* Credit transactions
+* Chore allocation
+* Bid validation
+* Expense calculations
+* Household membership
+
+Firestore Security Rules ensure that users can only access data belonging to their household.
+
+---
+
+## Status
+
+**Early Development**
+
+Choreconomy is currently under active development. The architecture and core mechanics may change as the allocation model and user experience are refined.
+
+---
+
+## Future Ideas
+
+Potential future features include:
+
+* AI-assisted chore scheduling
+* Household statistics
+* Advanced fairness analytics
+* Custom household economies
+* Reputation systems
+* Streaks and achievements
+* Seasonal challenges
+* Smart recurring chore generation
+* Household polls
+* Calendar integration
+* Wear OS companion
+* Multi-household support
+
+---
+
