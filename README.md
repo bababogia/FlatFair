@@ -1,4 +1,4 @@
-# FlatFair
+# FlatFair by Bogiatzis Alexandros
 
 A mobile application designed to make shared household management more **fair, transparent, and engaging**.
 
@@ -116,9 +116,6 @@ This includes:
 ---
 
 ## Technology Stack
-
-### Android
-
 * **Kotlin**
 * **Jetpack Compose**
 * **Material 3**
@@ -126,14 +123,8 @@ This includes:
 * **StateFlow**
 * **ViewModel**
 * **Clean Architecture**
+* **Firebase**
 
-### Backend
-
-* **Firebase Authentication**
-* **Cloud Firestore**
-* **Firebase Cloud Functions**
-* **Firebase Cloud Messaging**
-* **Firebase Storage**
 
 ### Allocation Engine
 
@@ -149,77 +140,6 @@ The system is designed around concepts from:
 
 ---
 
-## Architecture
-
-The application follows a layered architecture:
-
-```text
-┌──────────────────────────┐
-│       Jetpack Compose    │
-│            UI            │
-└────────────┬─────────────┘
-             │
-             ▼
-┌──────────────────────────┐
-│        ViewModels        │
-│       State / Flow       │
-└────────────┬─────────────┘
-             │
-             ▼
-┌──────────────────────────┐
-│        Use Cases         │
-│      Domain Logic        │
-└────────────┬─────────────┘
-             │
-             ▼
-┌──────────────────────────┐
-│       Repositories       │
-└────────────┬─────────────┘
-             │
-             ▼
-┌──────────────────────────┐
-│      Firebase Layer      │
-│ Auth / Firestore / FCM   │
-└──────────────────────────┘
-```
-
-Critical operations such as credit modifications and chore allocation are validated on the server rather than being trusted to the Android client.
-
----
-
-## Project Structure
-
-```text
-app/
-└── src/main/java/com/.../choreconomy/
-
-    ├── core/
-    │   ├── common/
-    │   ├── navigation/
-    │   └── ui/
-    │
-    ├── data/
-    │   ├── firebase/
-    │   ├── model/
-    │   └── repository/
-    │
-    ├── domain/
-    │   ├── model/
-    │   ├── repository/
-    │   └── usecase/
-    │
-    └── features/
-        ├── auth/
-        ├── household/
-        ├── dashboard/
-        ├── chores/
-        ├── bidding/
-        ├── expenses/
-        ├── social/
-        └── profile/
-```
-
----
 
 ## Development Roadmap
 
@@ -347,13 +267,6 @@ Firestore Security Rules ensure that users can only access data belonging to the
 
 ---
 
-## Status
-
-**Early Development**
-
-Choreconomy is currently under active development. The architecture and core mechanics may change as the allocation model and user experience are refined.
-
----
 
 ## Future Ideas
 
@@ -371,6 +284,4 @@ Potential future features include:
 * Calendar integration
 * Wear OS companion
 * Multi-household support
-
----
 
