@@ -111,6 +111,7 @@ fun AppNavigation(viewModel: AuthViewModel = hiltViewModel()) {
                     onNavigateToShopping = { navController.navigate(Screen.Shopping.route) },
                     onNavigateToAnnouncements = { navController.navigate(Screen.Announcements.route) },
                     onNavigateToCalendar = { navController.navigate(Screen.Calendar.route) },
+                    onNavigateToRewards = { navController.navigate(Screen.Rewards.route) },
                     onNavigateToRoommateProfile = { userId ->
                         navController.navigate(Screen.RoommateProfile.createRoute(userId))
                     }

@@ -11,10 +11,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.example.flatfair.domain.model.Bid
 import com.example.flatfair.domain.model.Chore
 import com.example.flatfair.domain.model.ChoreFrequency
@@ -187,7 +190,7 @@ fun CompletedChoresList(completedChores: List<Chore>, onChoreClick: (String) -> 
         ) {
             items(completedChores) { chore ->
                 ListItem(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    modifier = Modifier.fillMaxWidth().clickable { onChoreClick(chore.id) },
                     headlineContent = { Text(chore.title) },
                     supportingContent = { Text("Completed by ${chore.assignedUserName ?: "Unknown"}") },
                     trailingContent = {
@@ -210,9 +213,22 @@ fun VerificationCard(chore: Chore, onApprove: () -> Unit, onReject: () -> Unit, 
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(chore.title, style = MaterialTheme.typography.titleMedium)
-            Text("Done by: ${chore.assignedUserName}", style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(chore.title, style = MaterialTheme.typography.titleMedium)
+                    Text("Done by: ${chore.assignedUserName}", style = MaterialTheme.typography.bodySmall)
+                }
+                if (chore.proofImageUrl != null) {
+                    AsyncImage(
+                        model = chore.proofImageUrl,
+                        contentDescription = "Proof",
+                        modifier = Modifier.size(60.dp).clip(MaterialTheme.shapes.small),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onReject, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
                     Icon(Icons.Default.Close, contentDescription = null)

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,15 +18,22 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.flatfair.domain.model.ShoppingItem
+import com.example.flatfair.ui.viewmodel.HouseholdViewModel
 import com.example.flatfair.ui.viewmodel.ShoppingViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingListScreen(
-    viewModel: ShoppingViewModel = hiltViewModel()
+    viewModel: ShoppingViewModel = hiltViewModel(),
+    householdViewModel: HouseholdViewModel = hiltViewModel()
 ) {
     val items by viewModel.shoppingItems.collectAsState()
+    val members by householdViewModel.householdMembers.collectAsState()
+    val user by viewModel.currentUser.collectAsState()
+    
     var showAddItemDialog by remember { mutableStateOf(false) }
+    var itemToLogExpense by remember { mutableStateOf<ShoppingItem?>(null) }
 
     Scaffold(
         topBar = {
@@ -43,6 +51,18 @@ fun ShoppingListScreen(
                 onConfirm = { name, qty, urgent ->
                     viewModel.addItem(name, qty, urgent)
                     showAddItemDialog = false
+                }
+            )
+        }
+
+        if (itemToLogExpense != null) {
+            LogShoppingExpenseDialog(
+                item = itemToLogExpense!!,
+                members = members.filter { it.id != user?.id },
+                onDismiss = { itemToLogExpense = null },
+                onConfirm = { amount, splitWith ->
+                    viewModel.buyAndCreateExpense(itemToLogExpense!!, amount, splitWith)
+                    itemToLogExpense = null
                 }
             )
         }
@@ -67,6 +87,7 @@ fun ShoppingListScreen(
                         ShoppingItemRow(
                             item = item,
                             onToggleBought = { viewModel.toggleItemBought(item) },
+                            onLogExpense = { itemToLogExpense = item },
                             onDelete = { viewModel.deleteItem(item) }
                         )
                     }
@@ -79,6 +100,7 @@ fun ShoppingListScreen(
                         ShoppingItemRow(
                             item = item,
                             onToggleBought = { viewModel.toggleItemBought(item) },
+                            onLogExpense = null, // Already bought
                             onDelete = { viewModel.deleteItem(item) }
                         )
                     }
@@ -92,6 +114,7 @@ fun ShoppingListScreen(
 fun ShoppingItemRow(
     item: ShoppingItem,
     onToggleBought: () -> Unit,
+    onLogExpense: (() -> Unit)?,
     onDelete: () -> Unit
 ) {
     Card(
@@ -142,11 +165,77 @@ fun ShoppingItemRow(
                 )
             }
 
+            if (onLogExpense != null) {
+                IconButton(onClick = onLogExpense) {
+                    Icon(Icons.Default.ReceiptLong, contentDescription = "Buy & Log Expense", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
             }
         }
     }
+}
+
+@Composable
+fun LogShoppingExpenseDialog(
+    item: ShoppingItem,
+    members: List<com.example.flatfair.domain.model.User>,
+    onDismiss: () -> Unit,
+    onConfirm: (Double, List<String>) -> Unit
+) {
+    var amount by remember { mutableStateOf("") }
+    val selectedMembers = remember { mutableStateListOf<String>().apply { addAll(members.map { it.id }) } }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Log Expense for ${item.name}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) amount = it },
+                    label = { Text("Total Amount Paid ($)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    prefix = { Text("$ ") }
+                )
+                
+                Text("Split with:", style = MaterialTheme.typography.labelLarge)
+                members.forEach { member ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Checkbox(
+                            checked = selectedMembers.contains(member.id),
+                            onCheckedChange = { checked ->
+                                if (checked) selectedMembers.add(member.id)
+                                else selectedMembers.remove(member.id)
+                            }
+                        )
+                        Text(member.name)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { 
+                    val amountDouble = amount.toDoubleOrNull() ?: 0.0
+                    onConfirm(amountDouble, selectedMembers.toList()) 
+                },
+                enabled = amount.isNotBlank() && selectedMembers.isNotEmpty()
+            ) {
+                Text("Confirm Purchase")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
