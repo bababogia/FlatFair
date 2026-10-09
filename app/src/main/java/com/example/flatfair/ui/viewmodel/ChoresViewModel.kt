@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Date
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -18,7 +19,8 @@ class ChoresViewModel @Inject constructor(
     private val householdRepository: HouseholdRepository,
     private val userRepository: UserRepository,
     private val transactionRepository: TransactionRepository,
-    private val activityRepository: ActivityRepository
+    private val activityRepository: ActivityRepository,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
 
     val currentUser: StateFlow<User?> = authRepository.currentUser
@@ -82,14 +84,21 @@ class ChoresViewModel @Inject constructor(
         .flatMapLatest { household ->
             if (household != null) {
                 choreRepository.getChoresForHousehold(household.id)
-                    .map { chores -> chores.filter { it.status == ChoreStatus.COMPLETED }.sortedByDescending { it.deadline ?: java.util.Date(0) } }
+                    .map { chores -> chores.filter { it.status == ChoreStatus.COMPLETED }.sortedByDescending { it.verifiedAt ?: 0L } }
             } else {
                 flowOf(emptyList())
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun createChore(title: String, description: String, difficulty: Int, frequency: ChoreFrequency = ChoreFrequency.ONCE, category: String = "General") {
+    fun createChore(
+        title: String, 
+        description: String, 
+        difficulty: Int, 
+        frequency: ChoreFrequency = ChoreFrequency.ONCE, 
+        category: String = "General",
+        deadline: Date? = null
+    ) {
         val user = currentUser.value ?: return
         val householdId = user.currentHouseholdId ?: return
         viewModelScope.launch {
@@ -101,7 +110,8 @@ class ChoresViewModel @Inject constructor(
                 status = ChoreStatus.PENDING,
                 baseReward = difficulty * 10,
                 frequency = frequency,
-                category = category
+                category = category,
+                deadline = deadline
             )
             val result = choreRepository.createChore(chore)
             if (result.isSuccess) {
@@ -118,33 +128,15 @@ class ChoresViewModel @Inject constructor(
     }
 
     fun deleteChore(chore: Chore) {
-        val user = currentUser.value ?: return
         viewModelScope.launch {
-            val result = choreRepository.deleteChore(chore.id)
-            if (result.isSuccess) {
-                activityRepository.logActivity(ActivityLog(
-                    householdId = user.currentHouseholdId ?: "",
-                    userId = user.id,
-                    userName = user.name,
-                    action = "deleted the chore:",
-                    targetName = chore.title,
-                    type = ActivityType.CHORE
-                ))
-            }
+            choreRepository.deleteChore(chore.id)
         }
     }
 
     fun placeBid(choreId: String, amount: Int) {
         val user = currentUser.value ?: return
         viewModelScope.launch {
-            val result = choreRepository.placeBid(
-                Bid(
-                    userId = user.id,
-                    userName = user.name,
-                    choreId = choreId,
-                    amount = amount
-                )
-            )
+            val result = choreRepository.placeBid(Bid(user.id, user.name, choreId, amount))
             if (result.isSuccess) {
                 val chore = (availableChores.value + assignedChores.value + roommateChores.value).find { it.id == choreId }
                 activityRepository.logActivity(ActivityLog(
@@ -168,43 +160,44 @@ class ChoresViewModel @Inject constructor(
                     choreRepository.updateChoreProof(chore.id, uploadResult.getOrThrow())
                 }
             }
-            
-            val result = choreRepository.updateChoreStatus(chore.id, ChoreStatus.WAITING_FOR_VERIFICATION)
-            if (result.isSuccess) {
-                activityRepository.logActivity(ActivityLog(
-                    householdId = user.currentHouseholdId ?: "",
-                    userId = user.id,
-                    userName = user.name,
-                    action = "finished and requested verification for:",
-                    targetName = chore.title,
-                    type = ActivityType.CHORE
-                ))
-            }
+            choreRepository.updateChoreStatus(chore.id, ChoreStatus.WAITING_FOR_VERIFICATION)
         }
     }
 
-    fun approveChore(chore: Chore) {
+    fun approveChore(chore: Chore, rating: Int, feedback: String?) {
         val admin = currentUser.value ?: return
         viewModelScope.launch {
             val result = choreRepository.updateChoreStatus(chore.id, ChoreStatus.COMPLETED)
             if (result.isSuccess) {
+                choreRepository.submitRating(chore.id, rating, feedback)
+                
                 chore.assignedUserId?.let { userId ->
-                    val totalReward = chore.totalReward
-                    userRepository.updateCredits(userId, totalReward)
+                    val bonus = if (rating == 5) (chore.totalReward * 0.2).toInt() else 0
+                    val finalReward = chore.totalReward + bonus
+                    
+                    userRepository.updateCredits(userId, finalReward)
                     transactionRepository.addTransaction(
                         Transaction(
                             userId = userId,
-                            amount = totalReward,
+                            amount = finalReward,
                             type = TransactionType.TASK_REWARD,
                             choreId = chore.id
                         )
                     )
                     
+                    notificationRepository.sendNotification(Notification(
+                        userId = userId,
+                        title = "Chore Approved!",
+                        body = "Your work on '${chore.title}' was approved ($rating stars). You earned $finalReward credits.",
+                        type = NotificationType.CHORE_APPROVED,
+                        relatedId = chore.id
+                    ))
+
                     activityRepository.logActivity(ActivityLog(
                         householdId = admin.currentHouseholdId ?: "",
                         userId = admin.id,
                         userName = admin.name,
-                        action = "approved completion of:",
+                        action = "approved completion of ${chore.title} with a $rating-star rating.",
                         targetName = chore.title,
                         type = ActivityType.CHORE
                     ))
@@ -216,7 +209,9 @@ class ChoresViewModel @Inject constructor(
                             assignedUserName = null,
                             status = ChoreStatus.PENDING,
                             bonusPot = 0,
-                            proofImageUrl = null
+                            proofImageUrl = null,
+                            rating = null,
+                            feedback = null
                         )
                         choreRepository.createChore(nextChore)
                     }
@@ -228,15 +223,18 @@ class ChoresViewModel @Inject constructor(
     fun rejectVerification(chore: Chore) {
         val admin = currentUser.value ?: return
         viewModelScope.launch {
-            choreRepository.updateChoreStatus(chore.id, ChoreStatus.ASSIGNED)
-            activityRepository.logActivity(ActivityLog(
-                householdId = admin.currentHouseholdId ?: "",
-                userId = admin.id,
-                userName = admin.name,
-                action = "rejected verification for:",
-                targetName = chore.title,
-                type = ActivityType.CHORE
-            ))
+            val result = choreRepository.updateChoreStatus(chore.id, ChoreStatus.ASSIGNED)
+            if (result.isSuccess) {
+                chore.assignedUserId?.let { userId ->
+                    notificationRepository.sendNotification(Notification(
+                        userId = userId,
+                        title = "Chore Rejected",
+                        body = "The proof for '${chore.title}' was not sufficient. Please try again.",
+                        type = NotificationType.NUDGE,
+                        relatedId = chore.id
+                    ))
+                }
+            }
         }
     }
 
@@ -249,12 +247,19 @@ class ChoresViewModel @Inject constructor(
             val minBidAmount = bids.minOf { it.amount }
             val potentialWinners = bids.filter { it.amount == minBidAmount }
             val winnerBid = potentialWinners.random()
-            
             val totalBonus = bids.sumOf { it.amount }
             
             val result = choreRepository.assignChore(chore.id, winnerBid.userId, winnerBid.userName, totalBonus)
             
             if (result.isSuccess) {
+                notificationRepository.sendNotification(Notification(
+                    userId = winnerBid.userId,
+                    title = "New Task Assigned",
+                    body = "You've been assigned '${chore.title}' because you had the lowest bid to avoid it.",
+                    type = NotificationType.CHORE_ASSIGNED,
+                    relatedId = chore.id
+                ))
+
                 bids.forEach { bid ->
                     if (bid.amount > 0) {
                         userRepository.updateCredits(bid.userId, -bid.amount)
@@ -268,15 +273,6 @@ class ChoresViewModel @Inject constructor(
                         )
                     }
                 }
-
-                activityRepository.logActivity(ActivityLog(
-                    householdId = admin.currentHouseholdId ?: "",
-                    userId = admin.id,
-                    userName = admin.name,
-                    action = "resolved bidding for: ${chore.title}. Assigned to ${winnerBid.userName} with a ${totalBonus} credit bonus.",
-                    targetName = winnerBid.userName,
-                    type = ActivityType.HOUSEHOLD
-                ))
             }
         }
     }
@@ -293,32 +289,31 @@ class ChoresViewModel @Inject constructor(
                 type = ActivityType.NUDGE
             ))
             
-            val systemComment = Comment(
+            chore.assignedUserId?.let { userId ->
+                notificationRepository.sendNotification(Notification(
+                    userId = userId,
+                    title = "Friendly Nudge!",
+                    body = "${nudger.name} is checking in on '${chore.title}'.",
+                    type = NotificationType.NUDGE,
+                    relatedId = chore.id
+                ))
+            }
+            
+            choreRepository.addComment(chore.id, Comment(
                 authorId = "system",
                 authorName = "FlatFair Bot",
-                content = "${nudger.name} sent a friendly nudge! Is the task almost done?"
-            )
-            choreRepository.addComment(chore.id, systemComment)
+                content = "${nudger.name} sent a friendly nudge! How's it going with this task?"
+            ))
         }
     }
 
-    fun getBidsForChore(choreId: String): Flow<List<Bid>> {
-        return choreRepository.getBidsForChore(choreId)
-    }
-
-    fun getCommentsForChore(choreId: String): Flow<List<Comment>> {
-        return choreRepository.getCommentsForChore(choreId)
-    }
+    fun getBidsForChore(choreId: String): Flow<List<Bid>> = choreRepository.getBidsForChore(choreId)
+    fun getCommentsForChore(choreId: String): Flow<List<Comment>> = choreRepository.getCommentsForChore(choreId)
 
     fun addComment(choreId: String, content: String) {
         val user = currentUser.value ?: return
         viewModelScope.launch {
-            val comment = Comment(
-                authorId = user.id,
-                authorName = user.name,
-                content = content
-            )
-            choreRepository.addComment(choreId, comment)
+            choreRepository.addComment(choreId, Comment(authorId = user.id, authorName = user.name, content = content))
         }
     }
 }

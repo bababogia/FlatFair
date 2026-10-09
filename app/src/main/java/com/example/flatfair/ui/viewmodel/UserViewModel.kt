@@ -3,8 +3,11 @@ package com.example.flatfair.ui.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.flatfair.domain.model.ActivityLog
+import com.example.flatfair.domain.model.ActivityType
 import com.example.flatfair.domain.model.TransactionType
 import com.example.flatfair.domain.model.User
+import com.example.flatfair.domain.repository.ActivityRepository
 import com.example.flatfair.domain.repository.AuthRepository
 import com.example.flatfair.domain.repository.TransactionRepository
 import com.example.flatfair.domain.repository.UserRepository
@@ -25,7 +28,8 @@ data class UserStats(
 class UserViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val activityRepository: ActivityRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<UserUiState>(UserUiState.Idle)
@@ -85,6 +89,25 @@ class UserViewModel @Inject constructor(
             } else {
                 _uiState.value = UserUiState.Error("User not found")
             }
+        }
+    }
+
+    fun togglePresence(isHome: Boolean) {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            // Update Firestore
+            // We need a method in UserRepository to update presence
+            userRepository.updatePresence(user.id, isHome)
+            
+            // Log activity
+            activityRepository.logActivity(ActivityLog(
+                householdId = user.currentHouseholdId ?: "",
+                userId = user.id,
+                userName = user.name,
+                action = if (isHome) "is now home" else "just headed out",
+                targetName = "",
+                type = ActivityType.STATUS
+            ))
         }
     }
 

@@ -9,4 +9,5 @@ interface UserRepository {
     suspend fun updateCredits(userId: String, amountChange: Int): Result<Unit>
     suspend fun updateProfile(userId: String, name: String, profilePicUrl: String?): Result<Unit>
     suspend fun uploadProfilePicture(userId: String, imageUri: Uri): Result<String>
+    suspend fun updatePresence(userId: String, isHome: Boolean): Result<Unit>
 }

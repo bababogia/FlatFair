@@ -8,7 +8,9 @@ data class User(
     val email: String = "",
     val profilePicUrl: String? = null,
     val currentHouseholdId: String? = null,
-    val creditBalance: Int = 0
+    val creditBalance: Int = 0,
+    val isHome: Boolean = true,
+    val lastActive: Long = System.currentTimeMillis()
 )
 
 data class Household(
@@ -34,8 +36,12 @@ data class Chore(
     val status: ChoreStatus = ChoreStatus.PENDING,
     val category: String = "General",
     val frequency: ChoreFrequency = ChoreFrequency.ONCE,
-    val repeatDay: Int? = null, // 1-7 for day of week
-    val proofImageUrl: String? = null
+    val repeatDay: Int? = null, 
+    val proofImageUrl: String? = null,
+    val rating: Int? = null, // 1-5 stars
+    val feedback: String? = null,
+    val completedAt: Long? = null,
+    val verifiedAt: Long? = null
 ) {
     val totalReward: Int get() = baseReward + bonusPot
 }
@@ -110,7 +116,7 @@ data class Event(
     val title: String = "",
     val description: String = "",
     val startTime: Long = System.currentTimeMillis(),
-    val endTime: Long = System.currentTimeMillis() + 3600000, // +1 hour
+    val endTime: Long = System.currentTimeMillis() + 3600000, 
     val createdByUserId: String = "",
     val createdByUserName: String = "",
     val type: EventType = EventType.GENERAL
@@ -124,6 +130,18 @@ enum class EventType {
     MEETING
 }
 
+data class Poll(
+    val id: String = "",
+    val householdId: String = "",
+    val question: String = "",
+    val options: List<String> = emptyList(),
+    val votes: Map<String, Int> = emptyMap(), // userId -> optionIndex
+    val createdByUserId: String = "",
+    val createdByUserName: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val isClosed: Boolean = false
+)
+
 data class Reward(
     val id: String = "",
     val householdId: String = "",
@@ -133,6 +151,25 @@ data class Reward(
     val createdByUserId: String = "",
     val isAvailable: Boolean = true
 )
+
+data class Notification(
+    val id: String = "",
+    val userId: String = "", // Recipient
+    val title: String = "",
+    val body: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+    val isRead: Boolean = false,
+    val type: NotificationType = NotificationType.NUDGE,
+    val relatedId: String? = null 
+)
+
+enum class NotificationType {
+    NUDGE,
+    CHORE_ASSIGNED,
+    CHORE_APPROVED,
+    EXPENSE_ADDED,
+    POLL_STARTED
+}
 
 data class Transaction(
     val id: String = "",
@@ -173,5 +210,7 @@ enum class ActivityType {
     ANNOUNCEMENT,
     NUDGE,
     EVENT,
-    REWARD
+    REWARD,
+    STATUS,
+    POLL
 }

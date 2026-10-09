@@ -1,11 +1,16 @@
 package com.example.flatfair.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -14,14 +19,20 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.flatfair.domain.model.User
 import com.example.flatfair.ui.viewmodel.ActivityViewModel
 import com.example.flatfair.ui.viewmodel.DashboardViewModel
 import java.text.SimpleDateFormat
@@ -39,6 +50,8 @@ fun DashboardScreen(
     onNavigateToAnnouncements: () -> Unit = {},
     onNavigateToCalendar: () -> Unit = {},
     onNavigateToRewards: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToPolls: () -> Unit = {},
     onNavigateToRoommateProfile: (String) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
     activityViewModel: ActivityViewModel = hiltViewModel()
@@ -47,12 +60,14 @@ fun DashboardScreen(
     val household by viewModel.currentHousehold.collectAsState()
     val activeChores by viewModel.activeChores.collectAsState()
     val leaderboard by viewModel.leaderboard.collectAsState()
+    val members by viewModel.householdMembers.collectAsState()
     val pendingExpenses by viewModel.pendingExpensesCount.collectAsState()
     val pendingVerifications by viewModel.pendingVerificationsCount.collectAsState()
     val availableBids by viewModel.availableBidsCount.collectAsState()
     val pendingShopping by viewModel.pendingShoppingItemsCount.collectAsState()
     val announcementsCount by viewModel.announcementsCount.collectAsState()
     val upcomingEvents by viewModel.upcomingEventsCount.collectAsState()
+    val activePolls by viewModel.activePollsCount.collectAsState()
     val recentActivities by activityViewModel.recentActivities.collectAsState()
 
     var showRules by remember { mutableStateOf(false) }
@@ -73,6 +88,17 @@ fun DashboardScreen(
                         }
                     }
                 },
+                actions = {
+                    IconButton(onClick = onNavigateToNotifications) {
+                        BadgedBox(
+                            badge = {
+                                Badge()
+                            }
+                        ) {
+                            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -88,6 +114,24 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item { Spacer(modifier = Modifier.height(8.dp)) }
+
+            // Presence Widget
+            if (members.isNotEmpty()) {
+                item {
+                    Text("Who's Home?", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(members) { member ->
+                            PresenceAvatar(member = member) {
+                                onNavigateToRoommateProfile(member.id)
+                            }
+                        }
+                    }
+                }
+            }
             
             item {
                 Card(
@@ -156,7 +200,7 @@ fun DashboardScreen(
             }
 
             // Alerts Section
-            if (pendingVerifications > 0 || availableBids > 0 || pendingExpenses > 0 || pendingShopping > 0 || announcementsCount > 0 || upcomingEvents > 0) {
+            if (pendingVerifications > 0 || availableBids > 0 || pendingExpenses > 0 || pendingShopping > 0 || announcementsCount > 0 || upcomingEvents > 0 || activePolls > 0) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (announcementsCount > 0) {
@@ -167,11 +211,19 @@ fun DashboardScreen(
                                 onClick = onNavigateToAnnouncements
                             )
                         }
+                        if (activePolls > 0) {
+                            AlertCard(
+                                title = "Active Polls",
+                                text = "You have $activePolls polls to vote in",
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                onClick = onNavigateToPolls
+                            )
+                        }
                         if (upcomingEvents > 0) {
                             AlertCard(
                                 title = "Upcoming Events",
                                 text = "There are $upcomingEvents events in the next 3 days",
-                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                color = Color(0xFFE8EAF6),
                                 onClick = onNavigateToCalendar
                             )
                         }
@@ -317,6 +369,49 @@ fun DashboardScreen(
             
             item { Spacer(modifier = Modifier.height(32.dp)) }
         }
+    }
+}
+
+@Composable
+fun PresenceAvatar(member: User, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(72.dp)
+            .clickable { onClick() }
+    ) {
+        Box(contentAlignment = Alignment.BottomEnd) {
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = if (member.isHome) BorderStroke(2.dp, Color(0xFF4CAF50)) else null
+            ) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.padding(12.dp),
+                    tint = if (member.isHome) MaterialTheme.colorScheme.onSurfaceVariant 
+                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
+            // Small status dot
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(if (member.isHome) Color(0xFF4CAF50) else Color.Gray)
+                    .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = member.name.split(" ").firstOrNull() ?: "",
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

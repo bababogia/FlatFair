@@ -71,4 +71,16 @@ abstract class RepositoryModule {
     abstract fun bindEventRepository(
         eventRepositoryImpl: EventRepositoryImpl
     ): EventRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPollRepository(
+        pollRepositoryImpl: PollRepositoryImpl
+    ): PollRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationRepository(
+        notificationRepositoryImpl: NotificationRepositoryImpl
+    ): NotificationRepository
 }

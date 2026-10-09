@@ -1,6 +1,7 @@
 package com.example.flatfair.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -23,6 +24,9 @@ import com.example.flatfair.domain.model.Chore
 import com.example.flatfair.domain.model.ChoreFrequency
 import com.example.flatfair.domain.model.ChoreStatus
 import com.example.flatfair.ui.viewmodel.ChoresViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,18 +36,49 @@ fun ChoresScreen(
 ) {
     val availableChores by viewModel.availableChores.collectAsState()
     val assignedChores by viewModel.assignedChores.collectAsState()
+    val roommateChores by viewModel.roommateChores.collectAsState()
     val choresToVerify by viewModel.choresToVerify.collectAsState()
     val completedChores by viewModel.completedChores.collectAsState()
     val isAdmin by viewModel.isAdmin.collectAsState()
     
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAddChoreDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    
+    var sortOrder by remember { mutableStateOf(SortOrder.NEWEST) }
+    var selectedCategoryFilter by remember { mutableStateOf("All") }
+
+    val sheetState = rememberModalBottomSheetState()
+    var showFilterSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(title = { Text("Bidding & Chores") })
-                SecondaryTabRow(selectedTabIndex = selectedTab) {
+                TopAppBar(
+                    title = { Text("Bidding & Chores") },
+                    actions = {
+                        IconButton(onClick = { showFilterSheet = true }) {
+                            Icon(Icons.Default.FilterList, contentDescription = "Filter")
+                        }
+                    }
+                )
+                
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search chores...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = if (searchQuery.isNotEmpty()) {
+                        { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, contentDescription = null) } }
+                    } else null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    singleLine = true
+                )
+
+                TabRow(selectedTabIndex = selectedTab) {
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
@@ -63,11 +98,26 @@ fun ChoresScreen(
             }
         }
     ) { padding ->
+        if (showFilterSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showFilterSheet = false },
+                sheetState = sheetState
+            ) {
+                FilterBottomSheetContent(
+                    selectedCategory = selectedCategoryFilter,
+                    onCategorySelected = { selectedCategoryFilter = it },
+                    selectedSort = sortOrder,
+                    onSortSelected = { sortOrder = it },
+                    onDismiss = { showFilterSheet = false }
+                )
+            }
+        }
+
         if (showAddChoreDialog) {
             AddChoreDialog(
                 onDismiss = { showAddChoreDialog = false },
-                onConfirm = { title, desc, diff, freq, category ->
-                    viewModel.createChore(title, desc, diff, freq, category)
+                onConfirm = { title, desc, diff, freq, category, deadline ->
+                    viewModel.createChore(title, desc, diff, freq, category, deadline)
                     showAddChoreDialog = false
                 }
             )
@@ -76,29 +126,109 @@ fun ChoresScreen(
         Box(modifier = Modifier.padding(padding)) {
             if (selectedTab == 0) {
                 ActiveChoresList(
-                    availableChores = availableChores,
-                    assignedChores = assignedChores,
+                    availableChores = applyFilters(availableChores, searchQuery, selectedCategoryFilter, sortOrder),
+                    assignedChores = applyFilters(assignedChores, searchQuery, selectedCategoryFilter, sortOrder),
+                    roommateChores = applyFilters(roommateChores, searchQuery, selectedCategoryFilter, sortOrder),
                     choresToVerify = choresToVerify,
                     isAdmin = isAdmin,
                     viewModel = viewModel,
                     onChoreClick = onNavigateToChoreDetail
                 )
             } else {
-                CompletedChoresList(completedChores, onChoreClick = onNavigateToChoreDetail)
+                CompletedChoresList(
+                    completedChores = applyFilters(completedChores, searchQuery, selectedCategoryFilter, sortOrder),
+                    onChoreClick = onNavigateToChoreDetail
+                )
             }
         }
     }
+}
+
+enum class SortOrder {
+    NEWEST, REWARD_HIGH, REWARD_LOW, DIFFICULTY_HIGH
+}
+
+private fun applyFilters(chores: List<Chore>, query: String, category: String, sort: SortOrder): List<Chore> {
+    return chores
+        .filter { it.title.contains(query, ignoreCase = true) }
+        .filter { if (category == "All") true else it.category == category }
+        .let { list ->
+            when (sort) {
+                SortOrder.NEWEST -> list
+                SortOrder.REWARD_HIGH -> list.sortedByDescending { it.totalReward }
+                SortOrder.REWARD_LOW -> list.sortedBy { it.totalReward }
+                SortOrder.DIFFICULTY_HIGH -> list.sortedByDescending { it.difficulty }
+            }
+        }
+}
+
+@Composable
+fun FilterBottomSheetContent(
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit,
+    selectedSort: SortOrder,
+    onSortSelected: (SortOrder) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val categories = listOf("All", "Kitchen", "Bathroom", "Living Room", "Outdoors", "General")
+    
+    Column(modifier = Modifier.padding(24.dp).padding(bottom = 32.dp)) {
+        Text("Sort By", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SortOrder.entries.forEach { order ->
+                FilterChip(
+                    selected = selectedSort == order,
+                    onClick = { onSortSelected(order) },
+                    label = { Text(order.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }) }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Text("Category", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            categories.forEach { category ->
+                FilterChip(
+                    selected = selectedCategory == category,
+                    onClick = { onCategorySelected(category) },
+                    label = { Text(category) }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(32.dp))
+        Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+            Text("Show Results")
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FlowRow(
+    horizontalArrangement: Arrangement.Horizontal,
+    content: @Composable () -> Unit
+) {
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = horizontalArrangement,
+        content = { content() }
+    )
 }
 
 @Composable
 fun ActiveChoresList(
     availableChores: List<Chore>,
     assignedChores: List<Chore>,
+    roommateChores: List<Chore>,
     choresToVerify: List<Chore>,
     isAdmin: Boolean,
     viewModel: ChoresViewModel,
     onChoreClick: (String) -> Unit
 ) {
+    val dateFormatter = SimpleDateFormat("MMM dd", Locale.getDefault())
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -108,9 +238,21 @@ fun ActiveChoresList(
                 Text("Pending Verification", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
             }
             items(choresToVerify) { chore ->
+                var showRatingDialog by remember { mutableStateOf(false) }
+                
+                if (showRatingDialog) {
+                    RatingDialog(
+                        onDismiss = { showRatingDialog = false },
+                        onConfirm = { rating, feedback ->
+                            viewModel.approveChore(chore, rating, feedback)
+                            showRatingDialog = false
+                        }
+                    )
+                }
+
                 VerificationCard(
                     chore = chore,
-                    onApprove = { viewModel.approveChore(chore) },
+                    onApprove = { showRatingDialog = true },
                     onReject = { viewModel.rejectVerification(chore) },
                     onClick = { onChoreClick(chore.id) }
                 )
@@ -124,7 +266,7 @@ fun ActiveChoresList(
         }
 
         if (availableChores.isEmpty()) {
-            item { Text("No chores available for bidding.", style = MaterialTheme.typography.bodySmall) }
+            item { Text("No chores matching criteria.", style = MaterialTheme.typography.bodySmall) }
         }
 
         items(availableChores) { chore ->
@@ -150,6 +292,7 @@ fun ActiveChoresList(
         }
 
         items(assignedChores) { assignedChore ->
+            val deadline = assignedChore.deadline
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onChoreClick(assignedChore.id) }
@@ -161,7 +304,15 @@ fun ActiveChoresList(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(assignedChore.title, style = MaterialTheme.typography.titleMedium)
-                        Text("Reward: ${assignedChore.totalReward} credits", style = MaterialTheme.typography.bodySmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Reward: ${assignedChore.totalReward} credits", style = MaterialTheme.typography.bodySmall)
+                            if (deadline != null) {
+                                Spacer(Modifier.width(8.dp))
+                                Text("•", style = MaterialTheme.typography.bodySmall)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Due: ${dateFormatter.format(deadline)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
                         if (assignedChore.status == ChoreStatus.WAITING_FOR_VERIFICATION) {
                             Text("Waiting for verification...", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                         }
@@ -171,6 +322,37 @@ fun ActiveChoresList(
                         checked = assignedChore.status != ChoreStatus.ASSIGNED,
                         onCheckedChange = { if (it) viewModel.requestVerification(assignedChore) }
                     )
+                }
+            }
+        }
+
+        if (roommateChores.isNotEmpty()) {
+            item {
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Roommate Tasks", style = MaterialTheme.typography.titleLarge)
+            }
+
+            items(roommateChores) { chore ->
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onChoreClick(chore.id) }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(chore.title, style = MaterialTheme.typography.titleMedium)
+                            Text("Assigned to: ${chore.assignedUserName}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (chore.status == ChoreStatus.ASSIGNED) {
+                            IconButton(onClick = { viewModel.nudgeUser(chore) }) {
+                                Icon(Icons.Default.Notifications, contentDescription = "Nudge", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -189,12 +371,22 @@ fun CompletedChoresList(completedChores: List<Chore>, onChoreClick: (String) -> 
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(completedChores) { chore ->
+                val rating = chore.rating
                 ListItem(
                     modifier = Modifier.fillMaxWidth().clickable { onChoreClick(chore.id) },
                     headlineContent = { Text(chore.title) },
                     supportingContent = { Text("Completed by ${chore.assignedUserName ?: "Unknown"}") },
                     trailingContent = {
-                        Text("+${chore.totalReward}", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("+${chore.totalReward}", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                            if (rating != null) {
+                                Row {
+                                    repeat(rating) {
+                                        Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color(0xFFFFD700))
+                                    }
+                                }
+                            }
+                        }
                     },
                     leadingContent = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50)) }
                 )
@@ -326,15 +518,79 @@ fun BiddingChoreCard(
     }
 }
 
+@Composable
+fun RatingDialog(onDismiss: () -> Unit, onConfirm: (Int, String?) -> Unit) {
+    var rating by remember { mutableIntStateOf(5) }
+    var feedback by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rate & Approve Chore") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("How well was the task performed?")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    repeat(5) { index ->
+                        val starIndex = index + 1
+                        IconButton(onClick = { rating = starIndex }) {
+                            Icon(
+                                imageVector = if (starIndex <= rating) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = null,
+                                tint = if (starIndex <= rating) Color(0xFFFFD700) else MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = feedback,
+                    onValueChange = { feedback = it },
+                    label = { Text("Feedback (Optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(rating, feedback.ifBlank { null }) }) {
+                Text("Approve")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddChoreDialog(onDismiss: () -> Unit, onConfirm: (String, String, Int, ChoreFrequency, String) -> Unit) {
+fun AddChoreDialog(onDismiss: () -> Unit, onConfirm: (String, String, Int, ChoreFrequency, String, Date?) -> Unit) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var difficulty by remember { mutableFloatStateOf(1f) }
     var frequency by remember { mutableStateOf(ChoreFrequency.ONCE) }
     var category by remember { mutableStateOf("Kitchen") }
     var expandedFreq by remember { mutableStateOf(false) }
+    
+    var deadline by remember { mutableStateOf<Date?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState()
+    val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    deadline = datePickerState.selectedDateMillis?.let { Date(it) }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     val categories = listOf("Kitchen", "Bathroom", "Living Room", "Outdoors", "General")
 
@@ -357,30 +613,50 @@ fun AddChoreDialog(onDismiss: () -> Unit, onConfirm: (String, String, Int, Chore
 
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
                 
-                ExposedDropdownMenuBox(expanded = expandedFreq, onExpandedChange = { expandedFreq = !expandedFreq }) {
-                    OutlinedTextField(
-                        value = frequency.name.lowercase().replaceFirstChar { it.uppercase() },
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Frequency") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFreq) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true).fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(expanded = expandedFreq, onDismissRequest = { expandedFreq = false }) {
-                        ChoreFrequency.entries.forEach { freqOption ->
-                            DropdownMenuItem(
-                                text = { Text(freqOption.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                                onClick = { frequency = freqOption; expandedFreq = false }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ExposedDropdownMenuBox(
+                        expanded = expandedFreq, 
+                        onExpandedChange = { expandedFreq = !expandedFreq },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        OutlinedTextField(
+                            value = frequency.name.lowercase().replaceFirstChar { it.uppercase() },
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Frequency") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFreq) },
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true).fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(expanded = expandedFreq, onDismissRequest = { expandedFreq = false }) {
+                            ChoreFrequency.entries.forEach { freqOption ->
+                                DropdownMenuItem(
+                                    text = { Text(freqOption.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                                    onClick = { frequency = freqOption; expandedFreq = false }
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedCard(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.weight(1f).height(IntrinsicSize.Min)
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = if (deadline == null) "No Deadline" else dateFormatter.format(deadline!!),
+                                style = MaterialTheme.typography.labelSmall
                             )
                         }
                     }
                 }
+
                 Text("Difficulty: ${difficulty.toInt()}")
                 Slider(value = difficulty, onValueChange = { difficulty = it }, valueRange = 1f..5f, steps = 3)
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(title, description, difficulty.toInt(), frequency, category) }, enabled = title.isNotBlank()) {
+            Button(onClick = { onConfirm(title, description, difficulty.toInt(), frequency, category, deadline) }, enabled = title.isNotBlank()) {
                 Text("Add")
             }
         },

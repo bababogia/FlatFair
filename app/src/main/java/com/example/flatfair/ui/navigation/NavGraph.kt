@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -47,6 +48,8 @@ sealed class Screen(val route: String, val label: String? = null, val icon: Imag
     data object EditProfile : Screen("edit_profile")
     data object Announcements : Screen("announcements")
     data object Rewards : Screen("rewards", "Rewards", Icons.Default.CardGiftcard)
+    data object Notifications : Screen("notifications")
+    data object Polls : Screen("polls", "Polls", Icons.Default.Poll)
     data object ChoreDetail : Screen("chore_detail/{choreId}") {
         fun createRoute(choreId: String) = "chore_detail/$choreId"
     }
@@ -112,6 +115,8 @@ fun AppNavigation(viewModel: AuthViewModel = hiltViewModel()) {
                     onNavigateToAnnouncements = { navController.navigate(Screen.Announcements.route) },
                     onNavigateToCalendar = { navController.navigate(Screen.Calendar.route) },
                     onNavigateToRewards = { navController.navigate(Screen.Rewards.route) },
+                    onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
+                    onNavigateToPolls = { navController.navigate(Screen.Polls.route) },
                     onNavigateToRoommateProfile = { userId ->
                         navController.navigate(Screen.RoommateProfile.createRoute(userId))
                     }
@@ -157,6 +162,11 @@ fun AppNavigation(viewModel: AuthViewModel = hiltViewModel()) {
                 RewardsScreen()
             }
         }
+        composable(Screen.Polls.route) {
+            MainContainer(navController) {
+                PollsScreen(onNavigateBack = { navController.popBackStack() })
+            }
+        }
         composable(Screen.Profile.route) {
             MainContainer(navController) {
                 ProfileScreen(
@@ -195,7 +205,14 @@ fun AppNavigation(viewModel: AuthViewModel = hiltViewModel()) {
             )
         }
         composable(Screen.Announcements.route) {
-            AnnouncementsScreen()
+            AnnouncementsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Notifications.route) {
+            NotificationsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         composable(
             route = Screen.RoommateProfile.route,

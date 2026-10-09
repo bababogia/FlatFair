@@ -11,9 +11,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.flatfair.ui.components.StatItem
 import com.example.flatfair.ui.viewmodel.AuthViewModel
 import com.example.flatfair.ui.viewmodel.UserViewModel
 
@@ -70,6 +72,35 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Presence Card
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("Current Status", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = if (user?.isHome == true) "At Home" else "Out / Away",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (user?.isHome == true) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    Switch(
+                        checked = user?.isHome ?: true,
+                        onCheckedChange = { userViewModel.togglePresence(it) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Stats Card
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -117,13 +148,5 @@ fun ProfileScreen(
                 Text("Logout")
             }
         }
-    }
-}
-
-@Composable
-fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
     }
 }

@@ -151,4 +151,15 @@ class ChoreRepositoryImpl @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override suspend fun submitRating(choreId: String, rating: Int, feedback: String?): Result<Unit> = try {
+        firestore.collection("chores").document(choreId)
+            .update(
+                "rating", rating,
+                "feedback", feedback
+            ).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

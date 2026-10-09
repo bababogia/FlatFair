@@ -21,4 +21,5 @@ interface ChoreRepository {
     suspend fun addComment(choreId: String, comment: Comment): Result<Unit>
     suspend fun uploadProofImage(choreId: String, imageUri: Uri): Result<String>
     suspend fun updateChoreProof(choreId: String, proofImageUrl: String): Result<Unit>
+    suspend fun submitRating(choreId: String, rating: Int, feedback: String?): Result<Unit>
 }
