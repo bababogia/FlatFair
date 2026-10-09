@@ -1,9 +1,11 @@
 package com.example.flatfair.data.repository
 
+import android.net.Uri
 import com.example.flatfair.domain.model.User
 import com.example.flatfair.domain.repository.UserRepository
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -13,7 +15,8 @@ import javax.inject.Singleton
 
 @Singleton
 class UserRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage
 ) : UserRepository {
 
     override fun getUser(userId: String): Flow<User?> = callbackFlow {
@@ -36,12 +39,23 @@ class UserRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateProfile(userId: String, name: String, profilePicUrl: String?): Result<Unit> = try {
+        val updates = mutableMapOf<String, Any>(
+            "name" to name
+        )
+        profilePicUrl?.let { updates["profilePicUrl"] = it }
+        
         firestore.collection("users").document(userId)
-            .update(
-                "name", name,
-                "profilePicUrl", profilePicUrl
-            ).await()
+            .update(updates).await()
         Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun uploadProfilePicture(userId: String, imageUri: Uri): Result<String> = try {
+        val ref = storage.reference.child("profile_pictures/$userId.jpg")
+        ref.putFile(imageUri).await()
+        val downloadUrl = ref.downloadUrl.await().toString()
+        Result.success(downloadUrl)
     } catch (e: Exception) {
         Result.failure(e)
     }

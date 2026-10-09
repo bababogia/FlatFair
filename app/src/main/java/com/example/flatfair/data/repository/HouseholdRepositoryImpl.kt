@@ -104,7 +104,16 @@ class HouseholdRepositoryImpl @Inject constructor(
                 batch.set(transactionRef, transaction)
             }
         }.await()
+        
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 
+    override suspend fun updateHouseRules(householdId: String, rules: String): Result<Unit> = try {
+        firestore.collection("households").document(householdId)
+            .update("houseRules", rules)
+            .await()
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)

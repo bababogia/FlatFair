@@ -9,4 +9,5 @@ interface HouseholdRepository {
     suspend fun joinHousehold(inviteCode: String, userId: String): Result<Unit>
     suspend fun leaveHousehold(userId: String, householdId: String): Result<Unit>
     suspend fun distributeStipend(householdId: String, amount: Int): Result<Unit>
+    suspend fun updateHouseRules(householdId: String, rules: String): Result<Unit>
 }

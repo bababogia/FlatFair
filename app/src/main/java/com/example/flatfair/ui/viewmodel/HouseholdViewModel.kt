@@ -95,9 +95,22 @@ class HouseholdViewModel @Inject constructor(
             _uiState.value = HouseholdUiState.Loading
             val result = householdRepository.distributeStipend(householdId, amount)
             if (result.isSuccess) {
-                _uiState.value = HouseholdUiState.Idle // Reset to idle on success
+                _uiState.value = HouseholdUiState.Idle
             } else {
                 _uiState.value = HouseholdUiState.Error(result.exceptionOrNull()?.message ?: "Failed to distribute stipend")
+            }
+        }
+    }
+
+    fun updateHouseRules(rules: String) {
+        val householdId = currentHousehold.value?.id ?: return
+        viewModelScope.launch {
+            _uiState.value = HouseholdUiState.Loading
+            val result = householdRepository.updateHouseRules(householdId, rules)
+            if (result.isSuccess) {
+                _uiState.value = HouseholdUiState.Idle
+            } else {
+                _uiState.value = HouseholdUiState.Error(result.exceptionOrNull()?.message ?: "Failed to update house rules")
             }
         }
     }

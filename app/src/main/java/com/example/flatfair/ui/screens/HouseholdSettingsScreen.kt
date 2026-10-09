@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -35,12 +36,11 @@ fun HouseholdSettingsScreen(
     val clipboardManager = LocalClipboardManager.current
     var showLeaveDialog by remember { mutableStateOf(false) }
     var showStipendDialog by remember { mutableStateOf(false) }
+    var showRulesDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState) {
         if (uiState is HouseholdUiState.Success) {
-            // If it was a leave success, we might want to navigate back to a different place,
-            // but for now, navigating back is fine as the AppNavigation will redirect to HouseholdSelection.
-            onNavigateBack()
+            // Success state handling if needed
         }
     }
 
@@ -98,6 +98,38 @@ fun HouseholdSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showStipendDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showRulesDialog) {
+        var rulesText by remember { mutableStateOf(household?.houseRules ?: "") }
+        AlertDialog(
+            onDismissRequest = { showRulesDialog = false },
+            title = { Text("Edit House Rules") },
+            text = {
+                OutlinedTextField(
+                    value = rulesText,
+                    onValueChange = { rulesText = it },
+                    label = { Text("Rules & Agreements") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 5
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateHouseRules(rulesText)
+                        showRulesDialog = false
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRulesDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -167,6 +199,32 @@ fun HouseholdSettingsScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("House Rules", style = MaterialTheme.typography.titleMedium)
+                    if (isAdmin) {
+                        IconButton(onClick = { showRulesDialog = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit Rules")
+                        }
+                    }
+                }
+                
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = if (household?.houseRules.isNullOrBlank()) 
+                                "No rules defined yet. Add agreements about noise, guests, or shared supplies here." 
+                                else household!!.houseRules,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
             }

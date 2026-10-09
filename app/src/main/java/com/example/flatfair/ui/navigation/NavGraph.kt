@@ -3,6 +3,8 @@ package com.example.flatfair.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -20,10 +22,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.flatfair.ui.screens.*
 import com.example.flatfair.ui.viewmodel.AuthViewModel
 
@@ -33,12 +37,22 @@ sealed class Screen(val route: String, val label: String? = null, val icon: Imag
     data object HouseholdSelection : Screen("household_selection")
     data object Dashboard : Screen("dashboard", "Home", Icons.Default.Home)
     data object Chores : Screen("chores", "Chores", Icons.AutoMirrored.Filled.List)
+    data object Calendar : Screen("calendar", "Calendar", Icons.Default.DateRange)
+    data object Shopping : Screen("shopping", "Shopping", Icons.Default.ShoppingCart)
     data object Expenses : Screen("expenses", "Expenses", Icons.Default.ShoppingCart)
     data object Profile : Screen("profile", "Profile", Icons.Default.Person)
     data object HouseholdSettings : Screen("household_settings")
     data object TransactionHistory : Screen("transaction_history")
     data object RecentActivity : Screen("recent_activity")
     data object EditProfile : Screen("edit_profile")
+    data object Announcements : Screen("announcements")
+    data object Rewards : Screen("rewards", "Rewards", Icons.Default.CardGiftcard)
+    data object ChoreDetail : Screen("chore_detail/{choreId}") {
+        fun createRoute(choreId: String) = "chore_detail/$choreId"
+    }
+    data object RoommateProfile : Screen("roommate_profile/{userId}") {
+        fun createRoute(userId: String) = "roommate_profile/$userId"
+    }
 }
 
 @Composable
@@ -93,18 +107,53 @@ fun AppNavigation(viewModel: AuthViewModel = hiltViewModel()) {
                     onNavigateToChores = { navController.navigate(Screen.Chores.route) },
                     onNavigateToHistory = { navController.navigate(Screen.TransactionHistory.route) },
                     onNavigateToExpenses = { navController.navigate(Screen.Expenses.route) },
-                    onNavigateToActivity = { navController.navigate(Screen.RecentActivity.route) }
+                    onNavigateToActivity = { navController.navigate(Screen.RecentActivity.route) },
+                    onNavigateToShopping = { navController.navigate(Screen.Shopping.route) },
+                    onNavigateToAnnouncements = { navController.navigate(Screen.Announcements.route) },
+                    onNavigateToCalendar = { navController.navigate(Screen.Calendar.route) },
+                    onNavigateToRoommateProfile = { userId ->
+                        navController.navigate(Screen.RoommateProfile.createRoute(userId))
+                    }
                 )
             }
         }
         composable(Screen.Chores.route) {
             MainContainer(navController) {
-                ChoresScreen()
+                ChoresScreen(
+                    onNavigateToChoreDetail = { choreId ->
+                        navController.navigate(Screen.ChoreDetail.createRoute(choreId))
+                    }
+                )
+            }
+        }
+        composable(
+            route = Screen.ChoreDetail.route,
+            arguments = listOf(navArgument("choreId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val choreId = backStackEntry.arguments?.getString("choreId") ?: ""
+            ChoreDetailScreen(
+                choreId = choreId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Calendar.route) {
+            MainContainer(navController) {
+                CalendarScreen()
+            }
+        }
+        composable(Screen.Shopping.route) {
+            MainContainer(navController) {
+                ShoppingListScreen()
             }
         }
         composable(Screen.Expenses.route) {
             MainContainer(navController) {
                 ExpensesScreen()
+            }
+        }
+        composable(Screen.Rewards.route) {
+            MainContainer(navController) {
+                RewardsScreen()
             }
         }
         composable(Screen.Profile.route) {
@@ -144,6 +193,19 @@ fun AppNavigation(viewModel: AuthViewModel = hiltViewModel()) {
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+        composable(Screen.Announcements.route) {
+            AnnouncementsScreen()
+        }
+        composable(
+            route = Screen.RoommateProfile.route,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            RoommateProfileScreen(
+                userId = userId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -155,6 +217,7 @@ fun MainContainer(
     val items = listOf(
         Screen.Dashboard,
         Screen.Chores,
+        Screen.Shopping,
         Screen.Expenses,
         Screen.Profile
     )

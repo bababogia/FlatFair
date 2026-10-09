@@ -1,21 +1,7 @@
 package com.example.flatfair.di
 
-import com.example.flatfair.data.repository.ActivityRepositoryImpl
-import com.example.flatfair.data.repository.AuthRepositoryImpl
-import com.example.flatfair.data.repository.ChoreRepositoryImpl
-import com.example.flatfair.data.repository.ExpenseRepositoryImpl
-import com.example.flatfair.data.repository.HouseholdRepositoryImpl
-import com.example.flatfair.data.repository.ShoppingRepositoryImpl
-import com.example.flatfair.data.repository.TransactionRepositoryImpl
-import com.example.flatfair.data.repository.UserRepositoryImpl
-import com.example.flatfair.domain.repository.ActivityRepository
-import com.example.flatfair.domain.repository.AuthRepository
-import com.example.flatfair.domain.repository.ChoreRepository
-import com.example.flatfair.domain.repository.ExpenseRepository
-import com.example.flatfair.domain.repository.HouseholdRepository
-import com.example.flatfair.domain.repository.ShoppingRepository
-import com.example.flatfair.domain.repository.TransactionRepository
-import com.example.flatfair.domain.repository.UserRepository
+import com.example.flatfair.data.repository.*
+import com.example.flatfair.domain.repository.*
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -73,4 +59,16 @@ abstract class RepositoryModule {
     abstract fun bindShoppingRepository(
         shoppingRepositoryImpl: ShoppingRepositoryImpl
     ): ShoppingRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAnnouncementRepository(
+        announcementRepositoryImpl: AnnouncementRepositoryImpl
+    ): AnnouncementRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindEventRepository(
+        eventRepositoryImpl: EventRepositoryImpl
+    ): EventRepository
 }

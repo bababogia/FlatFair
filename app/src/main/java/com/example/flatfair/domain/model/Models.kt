@@ -16,7 +16,8 @@ data class Household(
     val name: String = "",
     val inviteCode: String = "",
     val adminIds: List<String> = emptyList(),
-    val memberIds: List<String> = emptyList()
+    val memberIds: List<String> = emptyList(),
+    val houseRules: String = ""
 )
 
 data class Chore(
@@ -33,7 +34,8 @@ data class Chore(
     val status: ChoreStatus = ChoreStatus.PENDING,
     val category: String = "General",
     val frequency: ChoreFrequency = ChoreFrequency.ONCE,
-    val repeatDay: Int? = null // 1-7 for day of week
+    val repeatDay: Int? = null, // 1-7 for day of week
+    val proofImageUrl: String? = null
 ) {
     val totalReward: Int get() = baseReward + bonusPot
 }
@@ -61,6 +63,14 @@ data class Bid(
     val amount: Int = 0
 )
 
+data class Comment(
+    val id: String = "",
+    val authorId: String = "",
+    val authorName: String = "",
+    val content: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 data class Expense(
     val id: String = "",
     val householdId: String = "",
@@ -84,6 +94,46 @@ data class ShoppingItem(
     val isBought: Boolean = false
 )
 
+data class Announcement(
+    val id: String = "",
+    val householdId: String = "",
+    val authorId: String = "",
+    val authorName: String = "",
+    val content: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+    val isImportant: Boolean = false
+)
+
+data class Event(
+    val id: String = "",
+    val householdId: String = "",
+    val title: String = "",
+    val description: String = "",
+    val startTime: Long = System.currentTimeMillis(),
+    val endTime: Long = System.currentTimeMillis() + 3600000, // +1 hour
+    val createdByUserId: String = "",
+    val createdByUserName: String = "",
+    val type: EventType = EventType.GENERAL
+)
+
+enum class EventType {
+    GENERAL,
+    GUEST,
+    AWAY,
+    CLEANING_DAY,
+    MEETING
+}
+
+data class Reward(
+    val id: String = "",
+    val householdId: String = "",
+    val title: String = "",
+    val description: String = "",
+    val cost: Int = 0,
+    val createdByUserId: String = "",
+    val isAvailable: Boolean = true
+)
+
 data class Transaction(
     val id: String = "",
     val userId: String = "",
@@ -91,14 +141,16 @@ data class Transaction(
     val type: TransactionType = TransactionType.STIPEND,
     val timestamp: Long = System.currentTimeMillis(),
     val choreId: String? = null,
-    val expenseId: String? = null
+    val expenseId: String? = null,
+    val rewardId: String? = null
 )
 
 enum class TransactionType {
     BID_SPENT,
     TASK_REWARD,
     STIPEND,
-    EXPENSE_SETTLEMENT
+    EXPENSE_SETTLEMENT,
+    REWARD_REDEMPTION
 }
 
 data class ActivityLog(
@@ -106,8 +158,8 @@ data class ActivityLog(
     val householdId: String = "",
     val userId: String = "",
     val userName: String = "",
-    val action: String = "", // e.g., "completed a chore", "placed a bid"
-    val targetName: String = "", // e.g., "Clean Kitchen"
+    val action: String = "", 
+    val targetName: String = "",
     val timestamp: Long = System.currentTimeMillis(),
     val type: ActivityType = ActivityType.CHORE
 )
@@ -117,5 +169,9 @@ enum class ActivityType {
     EXPENSE,
     BID,
     HOUSEHOLD,
-    SHOPPING
+    SHOPPING,
+    ANNOUNCEMENT,
+    NUDGE,
+    EVENT,
+    REWARD
 }

@@ -1,16 +1,21 @@
 package com.example.flatfair.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,23 +35,44 @@ fun DashboardScreen(
     onNavigateToHistory: () -> Unit = {},
     onNavigateToExpenses: () -> Unit = {},
     onNavigateToActivity: () -> Unit = {},
+    onNavigateToShopping: () -> Unit = {},
+    onNavigateToAnnouncements: () -> Unit = {},
+    onNavigateToCalendar: () -> Unit = {},
+    onNavigateToRewards: () -> Unit = {},
+    onNavigateToRoommateProfile: (String) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
     activityViewModel: ActivityViewModel = hiltViewModel()
 ) {
     val user by viewModel.currentUser.collectAsState()
+    val household by viewModel.currentHousehold.collectAsState()
     val activeChores by viewModel.activeChores.collectAsState()
     val leaderboard by viewModel.leaderboard.collectAsState()
     val pendingExpenses by viewModel.pendingExpensesCount.collectAsState()
     val pendingVerifications by viewModel.pendingVerificationsCount.collectAsState()
     val availableBids by viewModel.availableBidsCount.collectAsState()
+    val pendingShopping by viewModel.pendingShoppingItemsCount.collectAsState()
+    val announcementsCount by viewModel.announcementsCount.collectAsState()
+    val upcomingEvents by viewModel.upcomingEventsCount.collectAsState()
     val recentActivities by activityViewModel.recentActivities.collectAsState()
 
+    var showRules by remember { mutableStateOf(false) }
     val dateFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     Scaffold(
         topBar = {
             LargeTopAppBar(
-                title = { Text("FlatFair") },
+                title = { 
+                    Column {
+                        Text("FlatFair")
+                        if (household != null) {
+                            Text(
+                                text = household!!.name,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -71,44 +97,114 @@ fun DashboardScreen(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     )
                 ) {
-                    Column(modifier = Modifier.padding(24.dp)) {
-                        Text("Dorm Credits", style = MaterialTheme.typography.titleMedium)
-                        Text("${user?.creditBalance ?: 0}", style = MaterialTheme.typography.headlineLarge)
-                        Text(
-                            "Tap to view history",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                        )
+                    Row(
+                        modifier = Modifier.padding(24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Your Dorm Credits", style = MaterialTheme.typography.titleMedium)
+                            Text("${user?.creditBalance ?: 0}", style = MaterialTheme.typography.headlineLarge)
+                            Text(
+                                "Tap for history",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                        Button(onClick = onNavigateToRewards) {
+                            Icon(Icons.Default.CardGiftcard, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Rewards")
+                        }
+                    }
+                }
+            }
+
+            // Household Rules Preview
+            if (household != null && household!!.houseRules.isNotBlank()) {
+                item {
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { showRules = !showRules }
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("House Rules", style = MaterialTheme.typography.titleSmall)
+                                }
+                                Icon(
+                                    imageVector = if (showRules) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null
+                                )
+                            }
+                            AnimatedVisibility(visible = showRules) {
+                                Text(
+                                    text = household!!.houseRules,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
 
             // Alerts Section
-            if (pendingVerifications > 0 || availableBids > 0 || pendingExpenses > 0) {
+            if (pendingVerifications > 0 || availableBids > 0 || pendingExpenses > 0 || pendingShopping > 0 || announcementsCount > 0 || upcomingEvents > 0) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (announcementsCount > 0) {
+                            AlertCard(
+                                title = "New Announcements",
+                                text = "There are $announcementsCount messages for the household",
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                onClick = onNavigateToAnnouncements
+                            )
+                        }
+                        if (upcomingEvents > 0) {
+                            AlertCard(
+                                title = "Upcoming Events",
+                                text = "There are $upcomingEvents events in the next 3 days",
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                onClick = onNavigateToCalendar
+                            )
+                        }
                         if (pendingVerifications > 0) {
                             AlertCard(
-                                title = "Pending Verifications",
-                                text = "There are $pendingVerifications chores waiting for your approval",
+                                title = "Verification Required",
+                                text = "There are $pendingVerifications chores waiting for approval",
                                 color = MaterialTheme.colorScheme.tertiaryContainer,
                                 onClick = onNavigateToChores
                             )
                         }
                         if (availableBids > 0) {
                             AlertCard(
-                                title = "New Bidding Opportunities",
-                                text = "$availableBids chores are available for bidding",
-                                color = MaterialTheme.colorScheme.primaryContainer,
+                                title = "New Bids Open",
+                                text = "$availableBids chores are in the bidding phase",
+                                color = MaterialTheme.colorScheme.surfaceVariant,
                                 onClick = onNavigateToChores
                             )
                         }
                         if (pendingExpenses > 0) {
                             AlertCard(
                                 title = "Unsettled Expenses",
-                                text = "You have $pendingExpenses expenses to settle",
+                                text = "You have $pendingExpenses shared expenses to settle",
                                 color = MaterialTheme.colorScheme.errorContainer,
                                 onClick = onNavigateToExpenses
+                            )
+                        }
+                        if (pendingShopping > 0) {
+                            AlertCard(
+                                title = "Shopping List",
+                                text = "$pendingShopping items need to be bought",
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                onClick = onNavigateToShopping
                             )
                         }
                     }
@@ -121,42 +217,40 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Your Active Chores", style = MaterialTheme.typography.titleLarge)
+                    Text("Your Active Tasks", style = MaterialTheme.typography.titleLarge)
                     TextButton(onClick = onNavigateToChores) {
-                        Text("View All")
+                        Text("Manage")
                     }
                 }
             }
 
             if (activeChores.isEmpty()) {
                 item {
-                    Text(
-                        "No chores assigned to you yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
+                    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                        Box(modifier = Modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                "No chores assigned to you. Relax!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
                 }
             } else {
                 items(activeChores) { chore ->
                     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
                         ListItem(
                             headlineContent = { Text(chore.title) },
-                            supportingContent = { Text("Due: ${chore.deadline ?: "N/A"}") },
+                            supportingContent = { Text("Reward: ${chore.totalReward} pts") },
                             trailingContent = { 
-                                SuggestionChip(onClick = {}, label = { Text("${chore.baseReward} pts") })
+                                if (chore.status == com.example.flatfair.domain.model.ChoreStatus.WAITING_FOR_VERIFICATION) {
+                                    SuggestionChip(onClick = {}, label = { Text("Pending") })
+                                } else {
+                                    Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
                             }
                         )
                     }
-                }
-            }
-
-            item {
-                Button(
-                    onClick = onNavigateToChores,
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
-                    Text("Open Bidding Pool")
                 }
             }
 
@@ -169,7 +263,7 @@ fun DashboardScreen(
                     ) {
                         Text("Recent Activity", style = MaterialTheme.typography.titleLarge)
                         TextButton(onClick = onNavigateToActivity) {
-                            Text("More")
+                            Text("See All")
                         }
                     }
                 }
@@ -185,36 +279,43 @@ fun DashboardScreen(
 
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Household Leaderboard", style = MaterialTheme.typography.titleLarge)
+                Text("Roommate Leaderboard", style = MaterialTheme.typography.titleLarge)
             }
 
             itemsIndexed(leaderboard) { index, member ->
                 val isMe = member.id == user?.id
                 ListItem(
+                    modifier = Modifier.clickable { onNavigateToRoommateProfile(member.id) },
                     headlineContent = { 
                         Text(
                             text = if (isMe) "${member.name} (You)" else member.name,
-                            fontWeight = if (isMe) FontWeight.Bold else null
+                            fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
                         ) 
                     },
                     supportingContent = { Text("${member.creditBalance} credits") },
                     leadingContent = {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(32.dp)) {
-                            if (index == 0) {
-                                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700))
-                            } else {
-                                Text("#${index + 1}", style = MaterialTheme.typography.labelLarge)
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = if (index == 0) Color(0xFFFFD700).copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = (index + 1).toString(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (index == 0) Color(0xFFB8860B) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     },
-                    colors = if (isMe) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant) else ListItemDefaults.colors()
+                    colors = if (isMe) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else ListItemDefaults.colors()
                 )
                 if (index < leaderboard.size - 1) {
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 }
             }
             
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+            item { Spacer(modifier = Modifier.height(32.dp)) }
         }
     }
 }

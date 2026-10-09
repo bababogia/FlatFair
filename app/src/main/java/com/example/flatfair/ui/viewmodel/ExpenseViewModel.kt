@@ -58,6 +58,8 @@ class ExpenseViewModel @Inject constructor(
                 // Current user paid, others owe them
                 expense.splitWithUserIds.forEach { otherId ->
                     balanceMap[otherId] = (balanceMap[otherId] ?: 0.0) + share
+                    // We don't have names for everyone here easily, 
+                    // in a real app we'd fetch household members once and cache names.
                 }
             } else if (expense.splitWithUserIds.contains(user.id)) {
                 // Someone else paid, current user owes them

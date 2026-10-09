@@ -1,10 +1,14 @@
 package com.example.flatfair.data.repository
 
+import android.net.Uri
 import com.example.flatfair.domain.model.Chore
 import com.example.flatfair.domain.model.Bid
 import com.example.flatfair.domain.model.ChoreStatus
+import com.example.flatfair.domain.model.Comment
 import com.example.flatfair.domain.repository.ChoreRepository
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -14,7 +18,8 @@ import javax.inject.Singleton
 
 @Singleton
 class ChoreRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage
 ) : ChoreRepository {
 
     override fun getChoresForHousehold(householdId: String): Flow<List<Chore>> = callbackFlow {
@@ -62,6 +67,18 @@ class ChoreRepositoryImpl @Inject constructor(
         awaitClose { subscription.remove() }
     }
 
+    override fun getCommentsForChore(choreId: String): Flow<List<Comment>> = callbackFlow {
+        val subscription = firestore.collection("chores").document(choreId)
+            .collection("comments")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                val comments = snapshot?.toObjects(Comment::class.java) ?: emptyList()
+                trySend(comments)
+            }
+        awaitClose { subscription.remove() }
+    }
+
     override suspend fun createChore(chore: Chore): Result<Unit> = try {
         val docRef = firestore.collection("chores").document()
         val newChore = chore.copy(id = docRef.id)
@@ -102,6 +119,34 @@ class ChoreRepositoryImpl @Inject constructor(
 
     override suspend fun deleteChore(choreId: String): Result<Unit> = try {
         firestore.collection("chores").document(choreId).delete().await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun addComment(choreId: String, comment: Comment): Result<Unit> = try {
+        val docRef = firestore.collection("chores").document(choreId)
+            .collection("comments").document()
+        val newComment = comment.copy(id = docRef.id)
+        docRef.set(newComment).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun uploadProofImage(choreId: String, imageUri: Uri): Result<String> = try {
+        val ref = storage.reference.child("chore_proofs/$choreId/${System.currentTimeMillis()}.jpg")
+        val uploadTask = ref.putFile(imageUri).await()
+        val downloadUrl = ref.downloadUrl.await().toString()
+        Result.success(downloadUrl)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun updateChoreProof(choreId: String, proofImageUrl: String): Result<Unit> = try {
+        firestore.collection("chores").document(choreId)
+            .update("proofImageUrl", proofImageUrl)
+            .await()
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
