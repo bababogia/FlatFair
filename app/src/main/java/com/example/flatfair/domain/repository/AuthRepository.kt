@@ -10,4 +10,5 @@ interface AuthRepository {
     suspend fun register(email: String, name: String, password: String): Result<Unit>
     suspend fun logout()
     fun isUserLoggedIn(): Boolean
+    fun getHouseholdMembers(memberIds: List<String>): Flow<List<User>>
 }
