@@ -3,10 +3,7 @@ package com.example.flatfair.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.flatfair.domain.model.*
-import com.example.flatfair.domain.repository.ActivityRepository
-import com.example.flatfair.domain.repository.AuthRepository
-import com.example.flatfair.domain.repository.ExpenseRepository
-import com.example.flatfair.domain.repository.ShoppingRepository
+import com.example.flatfair.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -19,7 +16,9 @@ class ShoppingViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val shoppingRepository: ShoppingRepository,
     private val expenseRepository: ExpenseRepository,
-    private val activityRepository: ActivityRepository
+    private val activityRepository: ActivityRepository,
+    private val notificationRepository: NotificationRepository,
+    private val householdRepository: HouseholdRepository
 ) : ViewModel() {
 
     val currentUser: StateFlow<User?> = authRepository.currentUser
@@ -55,9 +54,21 @@ class ShoppingViewModel @Inject constructor(
                     userId = user.id,
                     userName = user.name,
                     action = "added to shopping list:",
-                    targetName = name,
+                    targetName = if (isUrgent) "URGENT: $name" else name,
                     type = ActivityType.SHOPPING
                 ))
+
+                // Notify household members
+                householdRepository.getHousehold(householdId).firstOrNull()?.let { household ->
+                    household.memberIds.filter { it != user.id }.forEach { memberId ->
+                        notificationRepository.sendNotification(Notification(
+                            userId = memberId,
+                            title = if (isUrgent) "Urgent Shopping Needed!" else "New Shopping Item",
+                            body = "${user.name} added $name to the list.",
+                            type = NotificationType.NUDGE
+                        ))
+                    }
+                }
             }
         }
     }
@@ -85,10 +96,8 @@ class ShoppingViewModel @Inject constructor(
         val householdId = user.currentHouseholdId ?: return
         
         viewModelScope.launch {
-            // 1. Mark as bought
             shoppingRepository.toggleItemBought(item.id, true)
             
-            // 2. Create Expense
             val expense = Expense(
                 householdId = householdId,
                 title = "Shopping: ${item.name}",
@@ -97,17 +106,28 @@ class ShoppingViewModel @Inject constructor(
                 paidByUserName = user.name,
                 splitWithUserIds = splitWithUserIds
             )
-            expenseRepository.addExpense(expense)
+            val result = expenseRepository.addExpense(expense)
             
-            // 3. Log Activity
-            activityRepository.logActivity(ActivityLog(
-                householdId = householdId,
-                userId = user.id,
-                userName = user.name,
-                action = "bought and logged expense for:",
-                targetName = item.name,
-                type = ActivityType.EXPENSE
-            ))
+            if (result.isSuccess) {
+                activityRepository.logActivity(ActivityLog(
+                    householdId = householdId,
+                    userId = user.id,
+                    userName = user.name,
+                    action = "bought and logged expense for:",
+                    targetName = item.name,
+                    type = ActivityType.EXPENSE
+                ))
+
+                // Notify split participants
+                splitWithUserIds.forEach { participantId ->
+                    notificationRepository.sendNotification(Notification(
+                        userId = participantId,
+                        title = "Shopping Expense Added",
+                        body = "${user.name} bought ${item.name}. You owe your share of $$amount.",
+                        type = NotificationType.EXPENSE_ADDED
+                    ))
+                }
+            }
         }
     }
 

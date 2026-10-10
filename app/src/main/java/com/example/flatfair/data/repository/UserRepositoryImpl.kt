@@ -59,4 +59,15 @@ class UserRepositoryImpl @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override suspend fun updatePresence(userId: String, isHome: Boolean): Result<Unit> = try {
+        firestore.collection("users").document(userId)
+            .update(
+                "isHome", isHome,
+                "lastActive", System.currentTimeMillis()
+            ).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

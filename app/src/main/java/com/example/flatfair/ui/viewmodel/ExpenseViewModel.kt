@@ -2,18 +2,13 @@ package com.example.flatfair.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.flatfair.domain.model.Expense
-import com.example.flatfair.domain.model.Transaction
-import com.example.flatfair.domain.model.TransactionType
-import com.example.flatfair.domain.model.User
-import com.example.flatfair.domain.repository.AuthRepository
-import com.example.flatfair.domain.repository.ExpenseRepository
-import com.example.flatfair.domain.repository.TransactionRepository
-import com.example.flatfair.domain.repository.UserRepository
+import com.example.flatfair.domain.model.*
+import com.example.flatfair.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 
 data class UserBalance(
@@ -28,7 +23,9 @@ class ExpenseViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val expenseRepository: ExpenseRepository,
     private val userRepository: UserRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val activityRepository: ActivityRepository,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
 
     val currentUser: StateFlow<User?> = authRepository.currentUser
@@ -44,25 +41,20 @@ class ExpenseViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Calculate how much is owed to/by the current user
     val userBalances: StateFlow<List<UserBalance>> = combine(currentUser, expenses) { user, expenseList ->
         if (user == null) return@combine emptyList()
         
-        val balanceMap = mutableMapOf<String, Double>() // userId -> amount
+        val balanceMap = mutableMapOf<String, Double>()
         val nameMap = mutableMapOf<String, String>()
 
         expenseList.filter { !it.isSettled }.forEach { expense ->
             val share = expense.amount / (expense.splitWithUserIds.size + 1)
             
             if (expense.paidByUserId == user.id) {
-                // Current user paid, others owe them
                 expense.splitWithUserIds.forEach { otherId ->
                     balanceMap[otherId] = (balanceMap[otherId] ?: 0.0) + share
-                    // We don't have names for everyone here easily, 
-                    // in a real app we'd fetch household members once and cache names.
                 }
             } else if (expense.splitWithUserIds.contains(user.id)) {
-                // Someone else paid, current user owes them
                 balanceMap[expense.paidByUserId] = (balanceMap[expense.paidByUserId] ?: 0.0) - share
                 nameMap[expense.paidByUserId] = expense.paidByUserName
             }
@@ -86,40 +78,69 @@ class ExpenseViewModel @Inject constructor(
                 paidByUserName = user.name,
                 splitWithUserIds = splitWithUserIds
             )
-            expenseRepository.addExpense(expense)
+            val result = expenseRepository.addExpense(expense)
+            if (result.isSuccess) {
+                // Log Activity
+                activityRepository.logActivity(ActivityLog(
+                    householdId = householdId,
+                    userId = user.id,
+                    userName = user.name,
+                    action = "logged an expense:",
+                    targetName = String.format(Locale.US, "%s ($%.2f)", title, amount),
+                    type = ActivityType.EXPENSE
+                ))
+
+                // Notify Participants
+                splitWithUserIds.forEach { participantId ->
+                    notificationRepository.sendNotification(Notification(
+                        userId = participantId,
+                        title = "New Shared Expense",
+                        body = String.format(Locale.US, "%s added '%s'. Your share is $%.2f", user.name, title, amount / (splitWithUserIds.size + 1)),
+                        type = NotificationType.EXPENSE_ADDED
+                    ))
+                }
+            }
         }
     }
 
     fun settleExpense(expense: Expense) {
+        val user = currentUser.value ?: return
         viewModelScope.launch {
             val result = expenseRepository.settleExpense(expense.id)
             if (result.isSuccess) {
                 val share = expense.amount / (expense.splitWithUserIds.size + 1)
-                val shareInCredits = (share * 10).toInt() 
+                val shareInCredits = (share * 10).toInt() // Conversion rate: $1 = 10 credits
 
+                // 1. Log activity
+                activityRepository.logActivity(ActivityLog(
+                    householdId = user.currentHouseholdId ?: "",
+                    userId = user.id,
+                    userName = user.name,
+                    action = "settled the expense:",
+                    targetName = expense.title,
+                    type = ActivityType.EXPENSE
+                ))
+
+                // 2. Adjust credits for each participant
                 expense.splitWithUserIds.forEach { userId ->
-                    // Deduct credits from those who owed
                     userRepository.updateCredits(userId, -shareInCredits)
-                    transactionRepository.addTransaction(
-                        Transaction(
-                            userId = userId,
-                            amount = shareInCredits,
-                            type = TransactionType.EXPENSE_SETTLEMENT,
-                            expenseId = expense.id
-                        )
-                    )
-
-                    // Add credits to the one who paid
-                    userRepository.updateCredits(expense.paidByUserId, shareInCredits)
-                    transactionRepository.addTransaction(
-                        Transaction(
-                            userId = expense.paidByUserId,
-                            amount = shareInCredits,
-                            type = TransactionType.EXPENSE_SETTLEMENT,
-                            expenseId = expense.id
-                        )
-                    )
+                    transactionRepository.addTransaction(Transaction(
+                        userId = userId,
+                        amount = shareInCredits,
+                        type = TransactionType.EXPENSE_SETTLEMENT,
+                        expenseId = expense.id
+                    ))
                 }
+
+                // 3. Reward the person who paid
+                val totalRecouped = shareInCredits * expense.splitWithUserIds.size
+                userRepository.updateCredits(expense.paidByUserId, totalRecouped)
+                transactionRepository.addTransaction(Transaction(
+                    userId = expense.paidByUserId,
+                    amount = totalRecouped,
+                    type = TransactionType.EXPENSE_SETTLEMENT,
+                    expenseId = expense.id
+                ))
             }
         }
     }

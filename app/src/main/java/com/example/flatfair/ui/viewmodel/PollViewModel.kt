@@ -15,7 +15,9 @@ import javax.inject.Inject
 class PollViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val pollRepository: PollRepository,
-    private val activityRepository: ActivityRepository
+    private val activityRepository: ActivityRepository,
+    private val notificationRepository: NotificationRepository,
+    private val householdRepository: HouseholdRepository
 ) : ViewModel() {
 
     val currentUser: StateFlow<User?> = authRepository.currentUser
@@ -45,6 +47,7 @@ class PollViewModel @Inject constructor(
             )
             val result = pollRepository.createPoll(poll)
             if (result.isSuccess) {
+                // Log Activity
                 activityRepository.logActivity(
                     ActivityLog(
                         householdId = householdId,
@@ -55,6 +58,21 @@ class PollViewModel @Inject constructor(
                         type = ActivityType.POLL
                     )
                 )
+
+                // Notify household members
+                householdRepository.getHousehold(householdId).firstOrNull()?.let { household ->
+                    household.memberIds.filter { it != user.id }.forEach { memberId ->
+                        notificationRepository.sendNotification(
+                            Notification(
+                                userId = memberId,
+                                title = "New Household Poll",
+                                body = "${user.name} asks: $question",
+                                type = NotificationType.POLL_STARTED,
+                                relatedId = poll.id
+                            )
+                        )
+                    }
+                }
             }
         }
     }

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Poll
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,6 +49,7 @@ fun DashboardScreen(
     onNavigateToActivity: () -> Unit = {},
     onNavigateToShopping: () -> Unit = {},
     onNavigateToAnnouncements: () -> Unit = {},
+    onNavigateToAnonymousBoard: () -> Unit = {},
     onNavigateToCalendar: () -> Unit = {},
     onNavigateToRewards: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
@@ -159,6 +161,51 @@ fun DashboardScreen(
                             Icon(Icons.Default.CardGiftcard, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("Rewards")
+                        }
+                    }
+                }
+            }
+
+            // Quick Access Row
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedCard(
+                        onClick = onNavigateToAnonymousBoard,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.Forum, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text("Board", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                    OutlinedCard(
+                        onClick = onNavigateToAnnouncements,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                            Text("Announce", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                    OutlinedCard(
+                        onClick = onNavigateToPolls,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.Poll, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                            Text("Polls", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }

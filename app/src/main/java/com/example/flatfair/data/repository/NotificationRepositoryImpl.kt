@@ -30,7 +30,7 @@ class NotificationRepositoryImpl @Inject constructor(
 
     override suspend fun markAsRead(notificationId: String): Result<Unit> = try {
         firestore.collection("notifications").document(notificationId)
-            .update("read", true)
+            .update("isRead", true)
             .await()
         Result.success(Unit)
     } catch (e: Exception) {

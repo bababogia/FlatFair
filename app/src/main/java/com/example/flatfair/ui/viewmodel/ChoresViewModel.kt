@@ -247,7 +247,11 @@ class ChoresViewModel @Inject constructor(
             val minBidAmount = bids.minOf { it.amount }
             val potentialWinners = bids.filter { it.amount == minBidAmount }
             val winnerBid = potentialWinners.random()
-            val totalBonus = bids.sumOf { it.amount }
+            
+            // The bonus pot is the sum of credits people were willing to pay to AVOID the chore.
+            // The winner (who bid the least) doesn't pay their own bid.
+            val otherBids = bids.filter { it.userId != winnerBid.userId }
+            val totalBonus = otherBids.sumOf { it.amount }
             
             val result = choreRepository.assignChore(chore.id, winnerBid.userId, winnerBid.userName, totalBonus)
             
@@ -255,12 +259,13 @@ class ChoresViewModel @Inject constructor(
                 notificationRepository.sendNotification(Notification(
                     userId = winnerBid.userId,
                     title = "New Task Assigned",
-                    body = "You've been assigned '${chore.title}' because you had the lowest bid to avoid it.",
+                    body = "You've been assigned '${chore.title}' because you had the lowest bid to avoid it. Bonus: $totalBonus credits.",
                     type = NotificationType.CHORE_ASSIGNED,
                     relatedId = chore.id
                 ))
 
-                bids.forEach { bid ->
+                // Deduct credits from everyone except the winner
+                otherBids.forEach { bid ->
                     if (bid.amount > 0) {
                         userRepository.updateCredits(bid.userId, -bid.amount)
                         transactionRepository.addTransaction(
@@ -273,6 +278,15 @@ class ChoresViewModel @Inject constructor(
                         )
                     }
                 }
+                
+                activityRepository.logActivity(ActivityLog(
+                    householdId = admin.currentHouseholdId ?: "",
+                    userId = admin.id,
+                    userName = admin.name,
+                    action = "resolved bidding for ${chore.title}. Assigned to ${winnerBid.userName}.",
+                    targetName = chore.title,
+                    type = ActivityType.BID
+                ))
             }
         }
     }

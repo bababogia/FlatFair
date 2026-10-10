@@ -82,6 +82,7 @@ fun TransactionHistoryScreen(
                                     TransactionType.TASK_REWARD -> "Task Reward"
                                     TransactionType.STIPEND -> "Weekly Stipend"
                                     TransactionType.EXPENSE_SETTLEMENT -> "Expense Settlement"
+                                    else -> ""
                                 }
                             )
                         },

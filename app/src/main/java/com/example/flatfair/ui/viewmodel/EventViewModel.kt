@@ -2,14 +2,8 @@ package com.example.flatfair.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.flatfair.domain.model.ActivityLog
-import com.example.flatfair.domain.model.ActivityType
-import com.example.flatfair.domain.model.Event
-import com.example.flatfair.domain.model.EventType
-import com.example.flatfair.domain.model.User
-import com.example.flatfair.domain.repository.ActivityRepository
-import com.example.flatfair.domain.repository.AuthRepository
-import com.example.flatfair.domain.repository.EventRepository
+import com.example.flatfair.domain.model.*
+import com.example.flatfair.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -21,7 +15,9 @@ import javax.inject.Inject
 class EventViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val eventRepository: EventRepository,
-    private val activityRepository: ActivityRepository
+    private val activityRepository: ActivityRepository,
+    private val notificationRepository: NotificationRepository,
+    private val householdRepository: HouseholdRepository
 ) : ViewModel() {
 
     val currentUser: StateFlow<User?> = authRepository.currentUser
@@ -61,6 +57,7 @@ class EventViewModel @Inject constructor(
             )
             val result = eventRepository.addEvent(event)
             if (result.isSuccess) {
+                // Log Activity
                 activityRepository.logActivity(
                     ActivityLog(
                         householdId = householdId,
@@ -71,6 +68,21 @@ class EventViewModel @Inject constructor(
                         type = ActivityType.EVENT
                     )
                 )
+
+                // Notify other members
+                householdRepository.getHousehold(householdId).firstOrNull()?.let { household ->
+                    household.memberIds.filter { it != user.id }.forEach { memberId ->
+                        notificationRepository.sendNotification(
+                            Notification(
+                                userId = memberId,
+                                title = "New Household Event",
+                                body = "${user.name} added: $title",
+                                type = NotificationType.EVENT_ADDED,
+                                relatedId = event.id
+                            )
+                        )
+                    }
+                }
             }
         }
     }

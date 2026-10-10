@@ -8,8 +8,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AssignmentInd
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Poll
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -117,10 +123,13 @@ fun NotificationItem(
         leadingContent = {
             val icon = when (notification.type) {
                 NotificationType.NUDGE -> Icons.Default.Notifications
-                NotificationType.CHORE_ASSIGNED -> Icons.Default.Notifications 
-                NotificationType.CHORE_APPROVED -> Icons.Default.Notifications
-                NotificationType.EXPENSE_ADDED -> Icons.Default.Notifications
-                NotificationType.POLL_STARTED -> Icons.Default.Notifications
+                NotificationType.CHORE_ASSIGNED -> Icons.Default.AssignmentInd
+                NotificationType.CHORE_APPROVED -> Icons.Default.CheckCircle
+                NotificationType.EXPENSE_ADDED -> Icons.Default.ReceiptLong
+                NotificationType.POLL_STARTED -> Icons.Default.Poll
+                NotificationType.ANNOUNCEMENT_POSTED -> Icons.Default.Notifications
+                NotificationType.EVENT_ADDED -> Icons.Default.Event
+                NotificationType.ANONYMOUS_POST_ADDED -> Icons.Default.Forum
             }
             Box {
                 Icon(

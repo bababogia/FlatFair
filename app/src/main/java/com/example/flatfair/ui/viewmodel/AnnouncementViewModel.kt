@@ -2,13 +2,8 @@ package com.example.flatfair.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.flatfair.domain.model.ActivityLog
-import com.example.flatfair.domain.model.ActivityType
-import com.example.flatfair.domain.model.Announcement
-import com.example.flatfair.domain.model.User
-import com.example.flatfair.domain.repository.ActivityRepository
-import com.example.flatfair.domain.repository.AnnouncementRepository
-import com.example.flatfair.domain.repository.AuthRepository
+import com.example.flatfair.domain.model.*
+import com.example.flatfair.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -20,7 +15,9 @@ import javax.inject.Inject
 class AnnouncementViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val announcementRepository: AnnouncementRepository,
-    private val activityRepository: ActivityRepository
+    private val activityRepository: ActivityRepository,
+    private val notificationRepository: NotificationRepository,
+    private val householdRepository: HouseholdRepository
 ) : ViewModel() {
 
     val currentUser: StateFlow<User?> = authRepository.currentUser
@@ -50,6 +47,7 @@ class AnnouncementViewModel @Inject constructor(
             )
             val result = announcementRepository.postAnnouncement(announcement)
             if (result.isSuccess) {
+                // Log Activity
                 activityRepository.logActivity(
                     ActivityLog(
                         householdId = householdId,
@@ -60,6 +58,20 @@ class AnnouncementViewModel @Inject constructor(
                         type = ActivityType.ANNOUNCEMENT
                     )
                 )
+
+                // Send Notifications to other members
+                householdRepository.getHousehold(householdId).firstOrNull()?.let { household ->
+                    household.memberIds.filter { it != user.id }.forEach { memberId ->
+                        notificationRepository.sendNotification(
+                            Notification(
+                                userId = memberId,
+                                title = if (isImportant) "Important Announcement!" else "New Announcement",
+                                body = "${user.name}: ${if (content.length > 50) content.take(50) + "..." else content}",
+                                type = NotificationType.ANNOUNCEMENT_POSTED
+                            )
+                        )
+                    }
+                }
             }
         }
     }

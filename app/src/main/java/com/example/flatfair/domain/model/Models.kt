@@ -110,6 +110,15 @@ data class Announcement(
     val isImportant: Boolean = false
 )
 
+data class AnonymousPost(
+    val id: String = "",
+    val householdId: String = "",
+    val authorId: String = "", // Kept for moderation/deletion by author
+    val content: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+    val authorAlias: String = "Mysterious Roommate"
+)
+
 data class Event(
     val id: String = "",
     val householdId: String = "",
@@ -168,7 +177,10 @@ enum class NotificationType {
     CHORE_ASSIGNED,
     CHORE_APPROVED,
     EXPENSE_ADDED,
-    POLL_STARTED
+    POLL_STARTED,
+    ANNOUNCEMENT_POSTED,
+    EVENT_ADDED,
+    ANONYMOUS_POST_ADDED
 }
 
 data class Transaction(
@@ -208,6 +220,7 @@ enum class ActivityType {
     HOUSEHOLD,
     SHOPPING,
     ANNOUNCEMENT,
+    ANONYMOUS_POST,
     NUDGE,
     EVENT,
     REWARD,

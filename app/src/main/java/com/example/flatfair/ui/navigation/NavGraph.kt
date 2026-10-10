@@ -3,8 +3,10 @@ package com.example.flatfair.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Poll
@@ -40,13 +42,14 @@ sealed class Screen(val route: String, val label: String? = null, val icon: Imag
     data object Chores : Screen("chores", "Chores", Icons.AutoMirrored.Filled.List)
     data object Calendar : Screen("calendar", "Calendar", Icons.Default.DateRange)
     data object Shopping : Screen("shopping", "Shopping", Icons.Default.ShoppingCart)
-    data object Expenses : Screen("expenses", "Expenses", Icons.Default.ShoppingCart)
+    data object Expenses : Screen("expenses", "Expenses", Icons.AutoMirrored.Filled.ReceiptLong)
     data object Profile : Screen("profile", "Profile", Icons.Default.Person)
     data object HouseholdSettings : Screen("household_settings")
     data object TransactionHistory : Screen("transaction_history")
     data object RecentActivity : Screen("recent_activity")
     data object EditProfile : Screen("edit_profile")
     data object Announcements : Screen("announcements")
+    data object AnonymousBoard : Screen("anonymous_board", "Board", Icons.Default.Forum)
     data object Rewards : Screen("rewards", "Rewards", Icons.Default.CardGiftcard)
     data object Notifications : Screen("notifications")
     data object Polls : Screen("polls", "Polls", Icons.Default.Poll)
@@ -113,6 +116,7 @@ fun AppNavigation(viewModel: AuthViewModel = hiltViewModel()) {
                     onNavigateToActivity = { navController.navigate(Screen.RecentActivity.route) },
                     onNavigateToShopping = { navController.navigate(Screen.Shopping.route) },
                     onNavigateToAnnouncements = { navController.navigate(Screen.Announcements.route) },
+                    onNavigateToAnonymousBoard = { navController.navigate(Screen.AnonymousBoard.route) },
                     onNavigateToCalendar = { navController.navigate(Screen.Calendar.route) },
                     onNavigateToRewards = { navController.navigate(Screen.Rewards.route) },
                     onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
@@ -206,6 +210,11 @@ fun AppNavigation(viewModel: AuthViewModel = hiltViewModel()) {
         }
         composable(Screen.Announcements.route) {
             AnnouncementsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.AnonymousBoard.route) {
+            AnonymousBoardScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

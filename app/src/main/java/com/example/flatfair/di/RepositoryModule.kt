@@ -68,6 +68,12 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindAnonymousPostRepository(
+        anonymousPostRepositoryImpl: AnonymousPostRepositoryImpl
+    ): AnonymousPostRepository
+
+    @Binds
+    @Singleton
     abstract fun bindEventRepository(
         eventRepositoryImpl: EventRepositoryImpl
     ): EventRepository
@@ -83,4 +89,10 @@ abstract class RepositoryModule {
     abstract fun bindNotificationRepository(
         notificationRepositoryImpl: NotificationRepositoryImpl
     ): NotificationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRewardRepository(
+        rewardRepositoryImpl: RewardRepositoryImpl
+    ): RewardRepository
 }
