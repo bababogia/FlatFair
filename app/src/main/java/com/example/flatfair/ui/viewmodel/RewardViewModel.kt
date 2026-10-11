@@ -72,34 +72,46 @@ class RewardViewModel @Inject constructor(
         }
     }
 
+    fun updateReward(reward: Reward) {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            val result = rewardRepository.updateReward(reward)
+            if (result.isSuccess) {
+                activityRepository.logActivity(ActivityLog(
+                    householdId = user.currentHouseholdId ?: "",
+                    userId = user.id,
+                    userName = user.name,
+                    action = "updated the reward:",
+                    targetName = reward.title,
+                    type = ActivityType.REWARD
+                ))
+            }
+        }
+    }
+
     fun redeemReward(reward: Reward) {
         val user = currentUser.value ?: return
         if (user.creditBalance < reward.cost) return
 
         viewModelScope.launch {
-            // 1. Deduct credits
-            val creditResult = userRepository.updateCredits(user.id, -reward.cost)
-            if (creditResult.isSuccess) {
-                // 2. Log transaction
-                transactionRepository.addTransaction(
-                    Transaction(
-                        userId = user.id,
-                        amount = reward.cost,
-                        type = TransactionType.REWARD_REDEMPTION,
-                        rewardId = reward.id
-                    )
-                )
-                
-                // 3. Log activity
-                activityRepository.logActivity(ActivityLog(
+            val result = rewardRepository.redeemReward(
+                userId = user.id,
+                reward = reward,
+                transaction = Transaction(
+                    userId = user.id,
+                    amount = reward.cost,
+                    type = TransactionType.REWARD_REDEMPTION,
+                    rewardId = reward.id
+                ),
+                activityLog = ActivityLog(
                     householdId = user.currentHouseholdId ?: "",
                     userId = user.id,
                     userName = user.name,
                     action = "redeemed the reward:",
                     targetName = reward.title,
                     type = ActivityType.REWARD
-                ))
-            }
+                )
+            )
         }
     }
 

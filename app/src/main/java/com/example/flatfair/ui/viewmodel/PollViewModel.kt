@@ -77,6 +77,25 @@ class PollViewModel @Inject constructor(
         }
     }
 
+    fun updatePoll(poll: Poll) {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            val result = pollRepository.updatePoll(poll)
+            if (result.isSuccess) {
+                activityRepository.logActivity(
+                    ActivityLog(
+                        householdId = user.currentHouseholdId ?: "",
+                        userId = user.id,
+                        userName = user.name,
+                        action = "updated the poll:",
+                        targetName = poll.question,
+                        type = ActivityType.POLL
+                    )
+                )
+            }
+        }
+    }
+
     fun vote(pollId: String, optionIndex: Int) {
         val user = currentUser.value ?: return
         viewModelScope.launch {

@@ -1,7 +1,10 @@
 package com.example.flatfair.data.repository
 
+import com.example.flatfair.domain.model.ActivityLog
 import com.example.flatfair.domain.model.Reward
+import com.example.flatfair.domain.model.Transaction
 import com.example.flatfair.domain.repository.RewardRepository
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +38,13 @@ class RewardRepositoryImpl @Inject constructor(
         Result.failure(e)
     }
 
+    override suspend fun updateReward(reward: Reward): Result<Unit> = try {
+        firestore.collection("rewards").document(reward.id).set(reward).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
     override suspend fun deleteReward(rewardId: String): Result<Unit> = try {
         firestore.collection("rewards").document(rewardId).delete().await()
         Result.success(Unit)
@@ -46,6 +56,35 @@ class RewardRepositoryImpl @Inject constructor(
         firestore.collection("rewards").document(rewardId)
             .update("isAvailable", isAvailable)
             .await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun redeemReward(
+        userId: String,
+        reward: Reward,
+        transaction: Transaction,
+        activityLog: ActivityLog
+    ): Result<Unit> = try {
+        firestore.runTransaction { firestoreTransaction ->
+            val userRef = firestore.collection("users").document(userId)
+            val transactionRef = firestore.collection("transactions").document()
+            val activityRef = firestore.collection("activity").document()
+
+            // 1. Deduct credits
+            firestoreTransaction.update(userRef, "creditBalance", FieldValue.increment(-reward.cost.toLong()))
+
+            // 2. Add transaction record
+            val newTransaction = transaction.copy(id = transactionRef.id)
+            firestoreTransaction.set(transactionRef, newTransaction)
+
+            // 3. Log activity
+            val newActivity = activityLog.copy(id = activityRef.id)
+            firestoreTransaction.set(activityRef, newActivity)
+            
+            null
+        }.await()
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)

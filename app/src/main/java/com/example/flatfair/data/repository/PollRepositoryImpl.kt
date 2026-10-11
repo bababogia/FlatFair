@@ -37,6 +37,13 @@ class PollRepositoryImpl @Inject constructor(
         Result.failure(e)
     }
 
+    override suspend fun updatePoll(poll: Poll): Result<Unit> = try {
+        firestore.collection("polls").document(poll.id).set(poll).await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
     override suspend fun voteInPoll(pollId: String, userId: String, optionIndex: Int): Result<Unit> = try {
         firestore.collection("polls").document(pollId)
             .update("votes.$userId", optionIndex)

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -383,13 +384,25 @@ fun DashboardScreen(
 
             itemsIndexed(leaderboard) { index, member ->
                 val isMe = member.id == user?.id
+                val isMemberAdmin = household?.adminIds?.contains(member.id) == true
                 ListItem(
                     modifier = Modifier.clickable { onNavigateToRoommateProfile(member.id) },
                     headlineContent = { 
-                        Text(
-                            text = if (isMe) "${member.name} (You)" else member.name,
-                            fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
-                        ) 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isMe) "${member.name} (You)" else member.name,
+                                fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
+                            )
+                            if (isMemberAdmin) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    Icons.Default.AdminPanelSettings,
+                                    contentDescription = "Admin",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     },
                     supportingContent = { Text("${member.creditBalance} credits") },
                     leadingContent = {
